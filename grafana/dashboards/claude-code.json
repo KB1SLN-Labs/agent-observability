@@ -122,7 +122,7 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "sum(claude_code_token_usage_tokens_total{type=\"cache_read\"}) / sum(claude_code_token_usage_tokens_total{type=~\"input|cache_read|cache_creation\"})",
+          "expr": "sum(claude_code_token_usage_tokens_total{type=\"cacheRead\"}) / sum(claude_code_token_usage_tokens_total{type=~\"input|cacheRead|cacheCreation\"})",
           "legendFormat": "Cache Hit Rate",
           "refId": "A"
         }
