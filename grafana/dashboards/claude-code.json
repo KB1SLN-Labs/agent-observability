@@ -1,11 +1,23 @@
 {
   "annotations": { "list": [] },
-  "description": "Claude Code usage — cost, tokens, and activity",
+  "description": "Claude Code usage — cost, tokens, cache efficiency, and development output",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
   "id": null,
-  "links": [],
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Logs →",
+      "tooltip": "Open log explorer",
+      "type": "link",
+      "url": "/d/claude-code-logs"
+    }
+  ],
   "refresh": "5m",
   "schemaVersion": 39,
   "tags": ["claude-code"],
@@ -46,39 +58,13 @@
     ]
   },
   "panels": [
+
     {
       "id": 1,
-      "type": "text",
-      "title": "",
-      "gridPos": { "x": 0, "y": 0, "w": 20, "h": 4 },
-      "options": {
-        "mode": "markdown",
-        "content": "**Token types**\n- `input` — everything sent to the model per turn (history + system prompt + your message); grows as context accumulates\n- `cacheRead` — tokens served from Anthropic cache at ~50% cost; should dominate in a healthy session\n- `output` — model response tokens\n- `cacheCreation` — new cache entries written this turn; small one-time cost to prime future reads\n\n**Watch for**\n- Token burn spike → approaching TPM limit; start a fresh session\n- `input` rising toward `cacheRead` → context snowballing; run `/compact`\n- Cache hit below 80% → cache not reusing effectively\n- Opus dominating cost → check if Sonnet or Haiku handles the task"
-      }
-    },
-    {
-      "id": 33,
-      "type": "text",
-      "title": "",
-      "gridPos": { "x": 20, "y": 0, "w": 4, "h": 4 },
-      "options": {
-        "mode": "markdown",
-        "content": "### [Claude Code Logs →](/d/claude-code-logs)\n\nLevel filtering · Session drill-down · Error investigation"
-      }
-    },
-    {
-      "id": 2,
-      "type": "row",
-      "title": "Key Numbers",
-      "collapsed": false,
-      "gridPos": { "x": 0, "y": 4, "w": 24, "h": 1 }
-    },
-    {
-      "id": 45,
       "type": "stat",
-      "title": "Cost Burn Rate ($/hr)",
-      "description": "Average cost burn rate in dollars per hour, calculated over the last 30 minutes. Annualizes your recent spend pace — if you spent $1.50 in the last 30 minutes this shows $3.00/hr. Won't zero out between turns.",
-      "gridPos": { "x": 0, "y": 5, "w": 3, "h": 4 },
+      "title": "Real-Time Cost Burn Rate",
+      "description": "Current spend rate annualized from the past 30 minutes. Won't zero out between API turns since the window is wider than a typical turn gap. Green below $0.50/hr, yellow to $2/hr, red above.",
+      "gridPos": { "x": 0, "y": 0, "w": 5, "h": 4 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "options": {
         "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
@@ -86,12 +72,13 @@
         "textMode": "auto",
         "colorMode": "background",
         "graphMode": "area",
-        "justifyMode": "auto"
+        "justifyMode": "center"
       },
       "fieldConfig": {
         "defaults": {
           "unit": "currencyUSD",
-          "decimals": 3,
+          "decimals": 4,
+          "displayName": "$/hr",
           "color": { "mode": "thresholds" },
           "thresholds": {
             "mode": "absolute",
@@ -114,16 +101,17 @@
         }
       ]
     },
+
     {
-      "id": 3,
+      "id": 2,
       "type": "stat",
-      "title": "Cost Today",
-      "description": "Total API spend in the last 24 hours across all sessions and models.",
-      "gridPos": { "x": 3, "y": 5, "w": 3, "h": 4 },
+      "title": "Total Cost Today",
+      "description": "Total API spend in the last 24 hours alongside the 7-day rolling daily average. Compare the two to see if today is running above or below baseline.",
+      "gridPos": { "x": 5, "y": 0, "w": 5, "h": 4 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "options": {
         "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
-        "orientation": "auto",
+        "orientation": "horizontal",
         "textMode": "auto",
         "colorMode": "value",
         "graphMode": "area",
@@ -152,19 +140,172 @@
           "expr": "sum(increase(claude_code_cost_usage_USD_total[24h]))",
           "legendFormat": "Cost Today",
           "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "avg_over_time((sum(increase(claude_code_cost_usage_USD_total[24h])))[7d:24h])",
+          "legendFormat": "7 Day Avg",
+          "instant": true,
+          "refId": "B"
         }
       ]
     },
+
     {
-      "id": 46,
+      "id": 3,
       "type": "stat",
-      "title": "7-Day Avg Cost",
-      "description": "Rolling average of daily cost over the past 7 days. Compare against Cost Today to see if today is above or below your recent baseline.",
-      "gridPos": { "x": 6, "y": 5, "w": 3, "h": 4 },
+      "title": "Cached Write Cost (24h)",
+      "description": "Estimated savings from prompt cache reads in the last 24 hours. Calculated as 9× the actual cache read cost — since cache reads cost ~10% of full input price, the remaining 90% is money saved. 7-day average shown for comparison.",
+      "gridPos": { "x": 10, "y": 0, "w": 4, "h": 4 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "options": {
         "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
-        "orientation": "auto",
+        "orientation": "horizontal",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 2,
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "sum(increase(claude_code_cost_usage_USD_total{type=\"cacheRead\"}[24h])) * 9",
+          "legendFormat": "Cache Savings",
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "avg_over_time((sum(increase(claude_code_cost_usage_USD_total{type=\"cacheRead\"}[24h])) * 9)[7d:24h])",
+          "legendFormat": "7 Day Avg",
+          "instant": true,
+          "refId": "B"
+        }
+      ]
+    },
+
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Regular Input Cost (24h)",
+      "description": "Cost of uncached input tokens in the last 24 hours. This is what you pay for new context that isn't yet cached. A rising number relative to cache savings means cache is being busted frequently.",
+      "gridPos": { "x": 14, "y": 0, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "options": {
+        "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
+        "orientation": "horizontal",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 4,
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1 },
+              { "color": "red", "value": 5 }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "sum(increase(claude_code_cost_usage_USD_total{type=\"input\"}[24h]))",
+          "legendFormat": "Input Costs",
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "avg_over_time((sum(increase(claude_code_cost_usage_USD_total{type=\"input\"}[24h])))[7d:24h])",
+          "legendFormat": "7 Day Avg",
+          "instant": true,
+          "refId": "B"
+        }
+      ]
+    },
+
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Code Edit Acceptance Rate %",
+      "description": "Percentage of Claude's proposed file edits that were accepted in the last 24 hours, plus the 7-day average. Below 80% suggests edits are frequently being rejected or need rework.",
+      "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "options": {
+        "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
+        "orientation": "horizontal",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 1,
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 60 },
+              { "color": "green", "value": 80 }
+            ]
+          },
+          "mappings": [],
+          "noValue": "No edits"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "sum(increase(claude_code_code_edit_tool_decision_total{decision=\"accept\"}[24h])) / clamp_min(sum(increase(claude_code_code_edit_tool_decision_total[24h])), 1) * 100",
+          "legendFormat": "Accept Rate",
+          "instant": true,
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "avg_over_time((sum(increase(claude_code_code_edit_tool_decision_total{decision=\"accept\"}[24h])) / clamp_min(sum(increase(claude_code_code_edit_tool_decision_total[24h])), 1) * 100)[7d:24h])",
+          "legendFormat": "7 Day Avg",
+          "instant": true,
+          "refId": "B"
+        }
+      ]
+    },
+
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Cost Forecast",
+      "description": "Daily and monthly cost projections extrapolated from the current 6-hour burn rate. Useful for catching runaway sessions before the bill arrives.",
+      "gridPos": { "x": 0, "y": 4, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "options": {
+        "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
+        "orientation": "vertical",
         "textMode": "auto",
         "colorMode": "value",
         "graphMode": "none",
@@ -186,23 +327,29 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "avg_over_time((sum(increase(claude_code_cost_usage_USD_total[24h])))[7d:24h])",
-          "instant": true,
-          "legendFormat": "7d Avg",
+          "expr": "sum(rate(claude_code_cost_usage_USD_total[6h])) * 3600 * 24",
+          "legendFormat": "Daily Projection",
           "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "sum(rate(claude_code_cost_usage_USD_total[6h])) * 3600 * 24 * 30",
+          "legendFormat": "Monthly Projection",
+          "refId": "B"
         }
       ]
     },
+
     {
-      "id": 4,
+      "id": 7,
       "type": "stat",
-      "title": "Cost per Session",
-      "description": "Average API spend per Claude Code session. Rising cost per session usually means context is snowballing — try /compact to reset.",
-      "gridPos": { "x": 9, "y": 5, "w": 3, "h": 4 },
+      "title": "Average Cost / Session",
+      "description": "Average API spend per session in the last 24 hours, compared to the 7-day average. A rising number over time usually means sessions are running longer without being compacted.",
+      "gridPos": { "x": 4, "y": 4, "w": 4, "h": 4 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "options": {
         "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
-        "orientation": "auto",
+        "orientation": "horizontal",
         "textMode": "auto",
         "colorMode": "value",
         "graphMode": "area",
@@ -211,7 +358,7 @@
       "fieldConfig": {
         "defaults": {
           "unit": "currencyUSD",
-          "decimals": 2,
+          "decimals": 4,
           "color": { "mode": "thresholds" },
           "thresholds": {
             "mode": "absolute",
@@ -229,138 +376,167 @@
         {
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
           "expr": "sum(increase(claude_code_cost_usage_USD_total[24h])) / clamp_min(sum(increase(claude_code_session_count_total[24h])), 1)",
-          "legendFormat": "Cost/Session",
+          "legendFormat": "Avg Session Cost",
           "refId": "A"
-        }
-      ]
-    },
-    {
-      "id": 5,
-      "type": "stat",
-      "title": "Cache Hit Rate",
-      "description": "Share of input-side tokens served from cache. Above 80% means you're spending efficiently. Below 60% suggests the context window is growing faster than cache is being reused.",
-      "gridPos": { "x": 12, "y": 5, "w": 3, "h": 4 },
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "options": {
-        "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
-        "orientation": "auto",
-        "textMode": "auto",
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percentunit",
-          "decimals": 1,
-          "min": 0,
-          "max": 1,
-          "color": { "mode": "thresholds" },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              { "color": "red", "value": null },
-              { "color": "yellow", "value": 0.6 },
-              { "color": "green", "value": 0.8 }
-            ]
-          },
-          "mappings": []
         },
-        "overrides": []
-      },
-      "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "sum(increase(claude_code_token_usage_tokens_total{type=\"cacheRead\"}[24h])) / clamp_min(sum(increase(claude_code_token_usage_tokens_total{type=~\"input|cacheRead|cacheCreation\"}[24h])), 1)",
-          "legendFormat": "Cache Hit Rate",
-          "refId": "A"
+          "expr": "avg_over_time((sum(increase(claude_code_cost_usage_USD_total[24h])) / clamp_min(sum(increase(claude_code_session_count_total[24h])), 1))[7d:24h])",
+          "legendFormat": "7 Day Average",
+          "instant": true,
+          "refId": "B"
         }
       ]
     },
-    {
-      "id": 6,
-      "type": "stat",
-      "title": "Tokens Today",
-      "description": "All tokens consumed in the last 24 hours across all types: input, output, cacheRead, and cacheCreation.",
-      "gridPos": { "x": 15, "y": 5, "w": 3, "h": 4 },
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "options": {
-        "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
-        "orientation": "auto",
-        "textMode": "auto",
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 0,
-          "color": { "mode": "thresholds" },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [{ "color": "blue", "value": null }]
-          },
-          "mappings": []
-        },
-        "overrides": []
-      },
-      "targets": [
-        {
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "sum(increase(claude_code_token_usage_tokens_total[24h]))",
-          "legendFormat": "Tokens",
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "id": 7,
-      "type": "stat",
-      "title": "Tokens per Session",
-      "description": "Average token consumption per session in the last 24 hours. A rising number over time points to context accumulation across long sessions.",
-      "gridPos": { "x": 18, "y": 5, "w": 3, "h": 4 },
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "options": {
-        "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
-        "orientation": "auto",
-        "textMode": "auto",
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 0,
-          "color": { "mode": "thresholds" },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [{ "color": "blue", "value": null }]
-          },
-          "mappings": []
-        },
-        "overrides": []
-      },
-      "targets": [
-        {
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "sum(increase(claude_code_token_usage_tokens_total[24h])) / clamp_min(sum(increase(claude_code_session_count_total[24h])), 1)",
-          "legendFormat": "Tokens/Session",
-          "refId": "A"
-        }
-      ]
-    },
+
     {
       "id": 8,
       "type": "stat",
-      "title": "Sessions Today",
-      "description": "Number of Claude Code sessions in the last 24 hours.",
-      "gridPos": { "x": 21, "y": 5, "w": 3, "h": 4 },
+      "title": "Cost per 1K Tokens",
+      "description": "Effective cost per 1,000 tokens across all token types. Because cache reads are ~10% of input price, heavy cache usage pulls this number down significantly. Compare against the 7-day average to spot efficiency changes.",
+      "gridPos": { "x": 8, "y": 4, "w": 4, "h": 4 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "options": {
         "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
-        "orientation": "auto",
+        "orientation": "horizontal",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 4,
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "text", "value": null }]
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "sum(increase(claude_code_cost_usage_USD_total[24h])) / clamp_min(sum(increase(claude_code_token_usage_tokens_total[24h])), 1) * 1000",
+          "legendFormat": "1K Tokens",
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "avg_over_time((sum(increase(claude_code_cost_usage_USD_total[24h])) / clamp_min(sum(increase(claude_code_token_usage_tokens_total[24h])), 1) * 1000)[7d:24h])",
+          "legendFormat": "7 Day Average",
+          "instant": true,
+          "refId": "B"
+        }
+      ]
+    },
+
+    {
+      "id": 9,
+      "type": "stat",
+      "title": "Active Time (24h)",
+      "description": "CLI time is how long Claude Code was running and processing. User time is how long you were actively engaged. A high CLI-to-user ratio means Claude is doing a lot of autonomous work.",
+      "gridPos": { "x": 12, "y": 4, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "options": {
+        "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
+        "orientation": "horizontal",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "m",
+          "decimals": 1,
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "text", "value": null }]
+          },
+          "mappings": [],
+          "noValue": "0"
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "CLI Time (min)" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "User Time (min)" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "blue" } }]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "sum(increase(claude_code_active_time_seconds_total{type=\"cli\"}[24h])) / 60",
+          "legendFormat": "CLI Time (min)",
+          "instant": true,
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "sum(increase(claude_code_active_time_seconds_total{type=\"user\"}[24h])) / 60",
+          "legendFormat": "User Time (min)",
+          "instant": true,
+          "refId": "B"
+        }
+      ]
+    },
+
+    {
+      "id": 10,
+      "type": "piechart",
+      "title": "Token Distribution by Model (24h)",
+      "description": "Share of total tokens consumed by each model in the last 24 hours. Sonnet dominating is expected for most workloads. A large Opus slice warrants a check on whether those tasks needed Opus-level reasoning.",
+      "gridPos": { "x": 16, "y": 4, "w": 8, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "options": {
+        "pieType": "pie",
+        "displayLabels": ["percent", "name"],
+        "legend": {
+          "displayMode": "list",
+          "placement": "right",
+          "calcs": []
+        },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false }
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "sum by (model) (increase(claude_code_token_usage_tokens_total[24h]))",
+          "legendFormat": "{{model}}",
+          "instant": true,
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "id": 11,
+      "type": "stat",
+      "title": "Active Sessions (24h)",
+      "description": "Number of Claude Code sessions in the last 24 hours compared to the 7-day daily average.",
+      "gridPos": { "x": 0, "y": 8, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "options": {
+        "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
+        "orientation": "horizontal",
         "textMode": "auto",
         "colorMode": "value",
         "graphMode": "area",
@@ -383,96 +559,70 @@
         {
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
           "expr": "sum(increase(claude_code_session_count_total[24h]))",
-          "legendFormat": "Sessions",
+          "legendFormat": "Active Sessions",
           "refId": "A"
-        }
-      ]
-    },
-    {
-      "id": 9,
-      "type": "row",
-      "title": "Token Activity [OTEL]",
-      "collapsed": false,
-      "gridPos": { "x": 0, "y": 9, "w": 24, "h": 1 }
-    },
-    {
-      "id": 10,
-      "type": "timeseries",
-      "title": "Token Burn Rate — All Types Over Time [OTEL]",
-      "description": "Token consumption rate broken down by type. cacheRead should dominate a healthy long session. A spike in input without a matching cacheRead rise means context is growing without being cached.",
-      "gridPos": { "x": 0, "y": 10, "w": 8, "h": 8 },
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "options": {
-        "tooltip": { "mode": "multi", "sort": "desc" },
-        "legend": { "displayMode": "list", "placement": "right", "calcs": [] }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 1,
-          "color": { "mode": "palette-classic" },
-          "custom": {
-            "lineWidth": 1,
-            "fillOpacity": 20,
-            "gradientMode": "none",
-            "spanNulls": false,
-            "showPoints": "never",
-            "stacking": { "mode": "none", "group": "A" },
-            "axisPlacement": "auto",
-            "scaleDistribution": { "type": "linear" },
-            "hideFrom": { "legend": false, "tooltip": false, "viz": false }
-          }
         },
-        "overrides": []
-      },
-      "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "sum by (type) (increase(claude_code_token_usage_tokens_total[10m]))",
-          "legendFormat": "{{type}}",
-          "refId": "A"
+          "expr": "avg_over_time((sum(increase(claude_code_session_count_total[24h])))[7d:24h])",
+          "legendFormat": "7 Day Avg",
+          "instant": true,
+          "refId": "B"
         }
       ]
     },
+
     {
-      "id": 11,
-      "type": "timeseries",
-      "title": "Input vs Cache Read — Context Snowball Detector [OTEL]",
-      "description": "When input climbs toward or above cacheRead, context is snowballing — the model is processing more new tokens than cached ones each turn. Run /compact to reset before hitting the TPM ceiling.",
-      "gridPos": { "x": 8, "y": 10, "w": 8, "h": 8 },
+      "id": 12,
+      "type": "bargauge",
+      "title": "Average Session Metrics",
+      "description": "Per-session averages over the last 24 hours: cost in dollars, total tokens, and active CLI time. Rising cost or token averages over days indicate sessions are running longer without being compacted.",
+      "gridPos": { "x": 4, "y": 8, "w": 8, "h": 4 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "options": {
-        "tooltip": { "mode": "multi", "sort": "desc" },
-        "legend": { "displayMode": "list", "placement": "right", "calcs": [] }
+        "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "valueMode": "color",
+        "showUnfilled": true,
+        "minVizWidth": 0,
+        "minVizHeight": 10
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
-          "decimals": 1,
           "color": { "mode": "palette-classic" },
-          "custom": {
-            "lineWidth": 2,
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "spanNulls": false,
-            "showPoints": "never",
-            "stacking": { "mode": "none", "group": "A" },
-            "axisPlacement": "auto",
-            "scaleDistribution": { "type": "linear" },
-            "hideFrom": { "legend": false, "tooltip": false, "viz": false }
-          }
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "text", "value": null }]
+          },
+          "mappings": []
         },
         "overrides": [
           {
-            "matcher": { "id": "byName", "options": "cacheRead" },
+            "matcher": { "id": "byFrameRefID", "options": "A" },
             "properties": [
+              { "id": "unit", "value": "currencyUSD" },
+              { "id": "decimals", "value": 4 },
+              { "id": "max", "value": 50 },
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byFrameRefID", "options": "B" },
+            "properties": [
+              { "id": "unit", "value": "short" },
+              { "id": "decimals", "value": 0 },
+              { "id": "max", "value": 10000000 },
               { "id": "color", "value": { "mode": "fixed", "fixedColor": "blue" } }
             ]
           },
           {
-            "matcher": { "id": "byName", "options": "input" },
+            "matcher": { "id": "byFrameRefID", "options": "C" },
             "properties": [
-              { "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } }
+              { "id": "unit", "value": "s" },
+              { "id": "decimals", "value": 0 },
+              { "id": "max", "value": 7200 },
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "purple" } }
             ]
           }
         ]
@@ -480,295 +630,34 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "sum by (type) (increase(claude_code_token_usage_tokens_total{type=~\"input|cacheRead\"}[10m]))",
-          "legendFormat": "{{type}}",
+          "expr": "sum(increase(claude_code_cost_usage_USD_total[24h])) / clamp_min(sum(increase(claude_code_session_count_total[24h])), 1)",
+          "legendFormat": "Avg Cost",
+          "instant": true,
           "refId": "A"
-        }
-      ]
-    },
-    {
-      "id": 12,
-      "type": "timeseries",
-      "title": "Cost Burn Rate by Model — $/min [OTEL]",
-      "description": "Real-time cost per minute broken down by model. Opus appearing here at scale is the most common cause of unexpected bills — check whether Sonnet or Haiku could handle the same task.",
-      "gridPos": { "x": 16, "y": 10, "w": 8, "h": 8 },
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "options": {
-        "tooltip": { "mode": "multi", "sort": "desc" },
-        "legend": { "displayMode": "list", "placement": "right", "calcs": [] }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "currencyUSD",
-          "decimals": 4,
-          "color": { "mode": "palette-classic" },
-          "custom": {
-            "lineWidth": 2,
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "spanNulls": false,
-            "showPoints": "auto",
-            "pointSize": 4,
-            "stacking": { "mode": "none", "group": "A" },
-            "axisPlacement": "auto",
-            "scaleDistribution": { "type": "linear" },
-            "hideFrom": { "legend": false, "tooltip": false, "viz": false }
-          }
         },
-        "overrides": []
-      },
-      "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "sum by (model) (rate(claude_code_cost_usage_USD_total[10m]) * 60)",
-          "legendFormat": "{{model}}",
-          "refId": "A"
+          "expr": "sum(increase(claude_code_token_usage_tokens_total[24h])) / clamp_min(sum(increase(claude_code_session_count_total[24h])), 1)",
+          "legendFormat": "Avg Tokens",
+          "instant": true,
+          "refId": "B"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "sum(increase(claude_code_active_time_seconds_total{type=\"cli\"}[24h])) / clamp_min(sum(increase(claude_code_session_count_total[24h])), 1)",
+          "legendFormat": "Avg Duration",
+          "instant": true,
+          "refId": "C"
         }
       ]
     },
+
     {
       "id": 13,
-      "type": "row",
-      "title": "Token Breakdown [OTEL]",
-      "collapsed": false,
-      "gridPos": { "x": 0, "y": 18, "w": 24, "h": 1 }
-    },
-    {
-      "id": 14,
-      "type": "table",
-      "title": "Token Volume by Type [OTEL]",
-      "description": "Cumulative token counts split by type. cacheRead dwarfing input is a sign of an efficient, well-cached workflow.",
-      "gridPos": { "x": 0, "y": 19, "w": 4, "h": 8 },
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "options": {
-        "showHeader": true,
-        "sortBy": [{ "displayName": "total_tokens", "desc": true }]
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 0,
-          "min": 0,
-          "custom": { "align": "auto", "displayMode": "auto" }
-        },
-        "overrides": [
-          {
-            "matcher": { "id": "byName", "options": "total_tokens" },
-            "properties": [
-              { "id": "custom.displayMode", "value": "gradient-gauge" },
-              { "id": "custom.align", "value": "left" }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "type" },
-            "properties": [
-              { "id": "custom.width", "value": 115 }
-            ]
-          }
-        ]
-      },
-      "transformations": [
-        {
-          "id": "organize",
-          "options": {
-            "excludeByName": { "Time": true, "__name__": true, "instance": true, "job": true },
-            "renameByName": { "Value": "total_tokens" }
-          }
-        }
-      ],
-      "targets": [
-        {
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "sum by (type) (claude_code_token_usage_tokens_total)",
-          "format": "table",
-          "instant": true,
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "id": 16,
-      "type": "table",
-      "title": "Total Cost by Session — Top 10 [OTEL]",
-      "description": "Most expensive sessions in the selected time range. A single session dominating the list usually means a very long context window or heavy Opus usage.",
-      "gridPos": { "x": 4, "y": 19, "w": 8, "h": 8 },
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "options": {
-        "showHeader": true,
-        "sortBy": [{ "displayName": "cost", "desc": true }]
-      },
-      "fieldConfig": {
-        "defaults": {
-          "custom": { "align": "auto", "displayMode": "auto" }
-        },
-        "overrides": [
-          {
-            "matcher": { "id": "byName", "options": "cost" },
-            "properties": [
-              { "id": "unit", "value": "currencyUSD" },
-              { "id": "decimals", "value": 2 },
-              { "id": "custom.width", "value": 90 }
-            ]
-          }
-        ]
-      },
-      "transformations": [
-        {
-          "id": "organize",
-          "options": {
-            "excludeByName": { "Time": true, "__name__": true, "instance": true, "job": true },
-            "renameByName": { "Value": "cost" },
-            "indexByName": { "Value": 0, "session_id": 1 }
-          }
-        }
-      ],
-      "targets": [
-        {
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "topk(10, sum by (session_id) (claude_code_cost_usage_USD_total))",
-          "format": "table",
-          "instant": true,
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "id": 30,
-      "type": "stat",
-      "title": "Cost per 1k Output Tokens [OTEL]",
-      "description": "Effective cost per 1,000 output tokens across all sessions. Higher than expected means heavy Opus usage or poor cache reuse driving up context costs. Benchmark: Sonnet ≈$0.015, Opus ≈$0.075.",
-      "gridPos": { "x": 12, "y": 19, "w": 8, "h": 4 },
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "options": {
-        "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
-        "orientation": "auto",
-        "textMode": "auto",
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "currencyUSD",
-          "decimals": 4,
-          "color": { "mode": "thresholds" },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              { "color": "green", "value": null },
-              { "color": "yellow", "value": 0.02 },
-              { "color": "red", "value": 0.06 }
-            ]
-          },
-          "mappings": []
-        },
-        "overrides": []
-      },
-      "targets": [
-        {
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "sum(claude_code_cost_usage_USD_total) / sum(claude_code_token_usage_tokens_total{type=\"output\"}) * 1000",
-          "legendFormat": "",
-          "refId": "A",
-          "instant": true
-        }
-      ]
-    },
-    {
-      "id": 31,
-      "type": "stat",
-      "title": "Cache Reuse Ratio [OTEL]",
-      "description": "cacheRead tokens divided by cacheCreation tokens. How many times each cached block is being reused on average. Above 5 is good — cache is paying for itself. Below 2 means you're writing cache entries that rarely get reused.",
-      "gridPos": { "x": 12, "y": 23, "w": 8, "h": 4 },
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "options": {
-        "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
-        "orientation": "auto",
-        "textMode": "auto",
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 1,
-          "color": { "mode": "thresholds" },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              { "color": "red", "value": null },
-              { "color": "yellow", "value": 2 },
-              { "color": "green", "value": 5 }
-            ]
-          },
-          "mappings": []
-        },
-        "overrides": []
-      },
-      "targets": [
-        {
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "sum(claude_code_token_usage_tokens_total{type=\"cacheRead\"}) / sum(claude_code_token_usage_tokens_total{type=\"cacheCreation\"})",
-          "legendFormat": "",
-          "refId": "A",
-          "instant": true
-        }
-      ]
-    },
-    {
-      "id": 29,
-      "type": "timeseries",
-      "title": "Session Count Over Time [OTEL]",
-      "description": "Active sessions per interval. Each line is a distinct session_id. Overlapping lines mean concurrent Claude Code sessions.",
-      "gridPos": { "x": 20, "y": 19, "w": 4, "h": 8 },
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "options": {
-        "tooltip": { "mode": "multi", "sort": "desc" },
-        "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 0,
-          "color": { "mode": "palette-classic" },
-          "custom": {
-            "lineWidth": 2,
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "spanNulls": false,
-            "showPoints": "auto",
-            "pointSize": 5,
-            "stacking": { "mode": "none", "group": "A" },
-            "axisPlacement": "auto",
-            "scaleDistribution": { "type": "linear" },
-            "hideFrom": { "legend": false, "tooltip": false, "viz": false }
-          }
-        },
-        "overrides": []
-      },
-      "targets": [
-        {
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "sum by (session_id) (increase(claude_code_session_count_total[10m]))",
-          "legendFormat": "{{session_id}}",
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "id": 17,
-      "type": "row",
-      "title": "Development Output",
-      "collapsed": false,
-      "gridPos": { "x": 0, "y": 27, "w": 24, "h": 1 }
-    },
-    {
-      "id": 42,
       "type": "bargauge",
       "title": "Lines of Code Modified",
-      "description": "Lines added and removed by Claude Code. Today values cover the last 24h; 7 Day Avg is the rolling daily average over the past week.",
-      "gridPos": { "x": 0, "y": 28, "w": 10, "h": 8 },
+      "description": "Lines added and removed in the last 24 hours alongside rolling 7-day daily averages. A large gap between Today and 7 Day Avg indicates an unusually active or quiet day.",
+      "gridPos": { "x": 12, "y": 8, "w": 4, "h": 4 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "options": {
         "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
@@ -777,7 +666,7 @@
         "valueMode": "color",
         "showUnfilled": true,
         "minVizWidth": 0,
-        "minVizHeight": 16
+        "minVizHeight": 10
       },
       "fieldConfig": {
         "defaults": {
@@ -796,39 +685,128 @@
         {
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
           "expr": "sum(increase(claude_code_lines_of_code_count_total{type=\"added\"}[24h]))",
-          "instant": true,
           "legendFormat": "Added Today",
+          "instant": true,
           "refId": "A"
         },
         {
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
           "expr": "avg_over_time((sum(increase(claude_code_lines_of_code_count_total{type=\"added\"}[24h])))[7d:24h])",
-          "instant": true,
           "legendFormat": "Added 7 Day Avg",
+          "instant": true,
           "refId": "B"
         },
         {
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
           "expr": "sum(increase(claude_code_lines_of_code_count_total{type=\"removed\"}[24h]))",
-          "instant": true,
           "legendFormat": "Deleted Today",
+          "instant": true,
           "refId": "C"
         },
         {
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
           "expr": "avg_over_time((sum(increase(claude_code_lines_of_code_count_total{type=\"removed\"}[24h])))[7d:24h])",
-          "instant": true,
           "legendFormat": "Deleted 7 Day Avg",
+          "instant": true,
           "refId": "D"
         }
       ]
     },
+
     {
-      "id": 43,
+      "id": 14,
+      "type": "gauge",
+      "title": "Cache Hit Rate %",
+      "description": "Percentage of input-side tokens served from Anthropic's prompt cache. Above 80% is healthy. Below 60% means cache is not being reused effectively — sessions may be too short or context structure is breaking cache blocks.",
+      "gridPos": { "x": 0, "y": 12, "w": 4, "h": 5 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "options": {
+        "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
+        "orientation": "auto",
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "text": {}
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 1,
+          "min": 0,
+          "max": 100,
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 60 },
+              { "color": "green", "value": 80 }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "sum(increase(claude_code_token_usage_tokens_total{type=\"cacheRead\"}[24h])) / clamp_min(sum(increase(claude_code_token_usage_tokens_total{type=~\"input|cacheRead|cacheCreation\"}[24h])), 1) * 100",
+          "legendFormat": "Cache Hit %",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "id": 15,
+      "type": "stat",
+      "title": "Total Tokens Today",
+      "description": "All tokens consumed in the last 24 hours across all types, alongside the 7-day daily average.",
+      "gridPos": { "x": 4, "y": 12, "w": 4, "h": 5 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "options": {
+        "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
+        "orientation": "horizontal",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "blue", "value": null }]
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "sum(increase(claude_code_token_usage_tokens_total[24h]))",
+          "legendFormat": "Total Tokens Today",
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "avg_over_time((sum(increase(claude_code_token_usage_tokens_total[24h])))[7d:24h])",
+          "legendFormat": "7 Day Avg",
+          "instant": true,
+          "refId": "B"
+        }
+      ]
+    },
+
+    {
+      "id": 16,
       "type": "bargauge",
       "title": "Model Token Efficiency (tokens/$)",
-      "description": "Total tokens per dollar spent, by model. Higher is more efficient. Haiku should vastly outperform Opus here — if it doesn't, check whether model selection is being overridden.",
-      "gridPos": { "x": 10, "y": 28, "w": 10, "h": 8 },
+      "description": "Total tokens per dollar spent by model over the selected time range. Higher is more efficient. Haiku should significantly outperform Opus. If the gap is narrow, check whether model selection is being forced.",
+      "gridPos": { "x": 8, "y": 12, "w": 8, "h": 5 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "options": {
         "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
@@ -856,18 +834,102 @@
         {
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
           "expr": "sum by (model) (increase(claude_code_token_usage_tokens_total[$__range])) / clamp_min(sum by (model) (increase(claude_code_cost_usage_USD_total[$__range])), 0.0001)",
-          "instant": true,
           "legendFormat": "{{model}}",
+          "instant": true,
           "refId": "A"
         }
       ]
     },
+
     {
-      "id": 44,
+      "id": 17,
+      "type": "piechart",
+      "title": "Tool Usage Breakdown",
+      "description": "Distribution of file edit operations by tool type over the selected time range. Edit modifies existing files in-place; Write creates or fully overwrites; NotebookEdit targets Jupyter cells.",
+      "gridPos": { "x": 16, "y": 12, "w": 8, "h": 10 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "options": {
+        "pieType": "donut",
+        "displayLabels": ["percent", "name"],
+        "legend": {
+          "displayMode": "list",
+          "placement": "right",
+          "calcs": []
+        },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false }
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "sum by (tool_name) (increase(claude_code_code_edit_tool_decision_total[$__range]))",
+          "legendFormat": "{{tool_name}}",
+          "instant": true,
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "id": 18,
+      "type": "timeseries",
+      "title": "Peak Cost Hours",
+      "description": "API spend per hour over the selected time range. Spikes show when sessions were most expensive. Useful for correlating high cost periods with what was being worked on.",
+      "gridPos": { "x": 0, "y": 17, "w": 8, "h": 5 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "options": {
+        "tooltip": { "mode": "single", "sort": "none" },
+        "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 4,
+          "color": { "mode": "fixed", "fixedColor": "green" },
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "spanNulls": false,
+            "showPoints": "never",
+            "barAlignment": 0,
+            "stacking": { "mode": "none", "group": "A" },
+            "axisPlacement": "auto",
+            "scaleDistribution": { "type": "linear" },
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "sum(increase(claude_code_cost_usage_USD_total[1h]))",
+          "legendFormat": "Cost/hr",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "id": 19,
       "type": "stat",
-      "title": "Weekly Token Usage",
-      "description": "Total tokens consumed in the last 7 days. Sparkline shows the daily trend — a rising slope means usage is accelerating week over week.",
-      "gridPos": { "x": 20, "y": 28, "w": 4, "h": 4 },
+      "title": "Weekly Total Token Usage",
+      "description": "Total tokens consumed in the last 7 days. The sparkline shows the daily trend — a rising slope means usage is accelerating week over week.",
+      "gridPos": { "x": 8, "y": 17, "w": 8, "h": 5 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "options": {
         "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
@@ -875,7 +937,7 @@
         "textMode": "auto",
         "colorMode": "value",
         "graphMode": "area",
-        "justifyMode": "auto"
+        "justifyMode": "center"
       },
       "fieldConfig": {
         "defaults": {
@@ -894,165 +956,33 @@
         {
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
           "expr": "sum(increase(claude_code_token_usage_tokens_total[7d]))",
-          "legendFormat": "Tokens",
+          "legendFormat": "Weekly Token Usage",
           "refId": "A"
         }
       ]
     },
+
     {
-      "id": 21,
-      "type": "stat",
-      "title": "Total Commits",
-      "description": "Commits made during Claude Code sessions in this time range.",
-      "gridPos": { "x": 20, "y": 32, "w": 4, "h": 4 },
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "options": {
-        "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
-        "orientation": "auto",
-        "textMode": "auto",
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 0,
-          "color": { "mode": "thresholds" },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [{ "color": "blue", "value": null }]
-          },
-          "mappings": []
-        },
-        "overrides": []
-      },
-      "targets": [
-        {
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "sum(claude_code_commit_count_total)",
-          "legendFormat": "Commits",
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "id": 22,
+      "id": 20,
       "type": "timeseries",
-      "title": "Lines of Code",
-      "gridPos": { "x": 0, "y": 36, "w": 12, "h": 8 },
+      "title": "Cost Anomaly Detection",
+      "description": "Deviation of current hourly spend from the 7-day historical average for the same hour. Values above 200% (dashed line) are flagged as anomalies — investigate what was running during those periods.",
+      "gridPos": { "x": 0, "y": 22, "w": 8, "h": 5 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "options": {
         "tooltip": { "mode": "multi", "sort": "desc" },
-        "legend": { "displayMode": "list", "placement": "bottom", "calcs": ["sum"] }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 0,
-          "color": { "mode": "palette-classic" },
-          "custom": {
-            "lineWidth": 2,
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "spanNulls": false,
-            "showPoints": "auto",
-            "pointSize": 5,
-            "stacking": { "mode": "none", "group": "A" },
-            "axisPlacement": "auto",
-            "scaleDistribution": { "type": "linear" },
-            "hideFrom": { "legend": false, "tooltip": false, "viz": false }
-          }
-        },
-        "overrides": [
-          {
-            "matcher": { "id": "byName", "options": "removed" },
-            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }]
-          },
-          {
-            "matcher": { "id": "byName", "options": "added" },
-            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }]
-          }
-        ]
-      },
-      "targets": [
-        {
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "sum by (type) (increase(claude_code_lines_of_code_count_total[10m]))",
-          "legendFormat": "{{type}}",
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "id": 23,
-      "type": "timeseries",
-      "title": "Commits over Time",
-      "gridPos": { "x": 12, "y": 36, "w": 12, "h": 8 },
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "options": {
-        "tooltip": { "mode": "multi", "sort": "desc" },
-        "legend": { "displayMode": "list", "placement": "bottom", "calcs": ["sum"] }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 0,
-          "color": { "mode": "fixed", "fixedColor": "blue" },
-          "custom": {
-            "lineWidth": 2,
-            "fillOpacity": 15,
-            "gradientMode": "none",
-            "spanNulls": false,
-            "showPoints": "auto",
-            "pointSize": 6,
-            "stacking": { "mode": "none", "group": "A" },
-            "axisPlacement": "auto",
-            "scaleDistribution": { "type": "linear" },
-            "hideFrom": { "legend": false, "tooltip": false, "viz": false }
-          }
-        },
-        "overrides": []
-      },
-      "targets": [
-        {
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "sum(increase(claude_code_commit_count_total[10m]))",
-          "legendFormat": "Commits",
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "id": 24,
-      "type": "row",
-      "title": "Rate Limit Proximity & Cache Health",
-      "collapsed": false,
-      "gridPos": { "x": 0, "y": 44, "w": 24, "h": 1 }
-    },
-    {
-      "id": 26,
-      "type": "timeseries",
-      "title": "Cache Hit Rate Over Time",
-      "description": "Cache hit rate trend over the selected window. Sustained drops below 80% are a signal to restructure long sessions — cache is not being reused effectively. A sudden drop mid-session usually means a large new block of text invalidated the cache.",
-      "gridPos": { "x": 0, "y": 45, "w": 12, "h": 8 },
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "options": {
-        "tooltip": { "mode": "single", "sort": "none" },
         "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] }
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "percentunit",
+          "unit": "percent",
           "decimals": 1,
-          "min": 0,
-          "max": 1,
-          "color": { "mode": "fixed", "fixedColor": "blue" },
+          "color": { "mode": "palette-classic" },
           "custom": {
-            "lineWidth": 2,
-            "fillOpacity": 15,
-            "gradientMode": "opacity",
-            "spanNulls": false,
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "spanNulls": true,
             "showPoints": "never",
             "stacking": { "mode": "none", "group": "A" },
             "axisPlacement": "auto",
@@ -1063,48 +993,104 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "red", "value": null },
-              { "color": "yellow", "value": 0.6 },
-              { "color": "green", "value": 0.8 }
+              { "color": "transparent", "value": null },
+              { "color": "red", "value": 200 }
             ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Anomaly" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } },
+              { "id": "custom.lineWidth", "value": 0 },
+              { "id": "custom.showPoints", "value": "always" },
+              { "id": "custom.pointSize", "value": 8 }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "((sum(increase(claude_code_cost_usage_USD_total[1h])) - avg_over_time((sum(increase(claude_code_cost_usage_USD_total[1h])))[7d:1h])) / clamp_min(avg_over_time((sum(increase(claude_code_cost_usage_USD_total[1h])))[7d:1h]), 0.0001)) * 100",
+          "legendFormat": "Deviation %",
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "clamp_min(((sum(increase(claude_code_cost_usage_USD_total[1h])) - avg_over_time((sum(increase(claude_code_cost_usage_USD_total[1h])))[7d:1h])) / clamp_min(avg_over_time((sum(increase(claude_code_cost_usage_USD_total[1h])))[7d:1h]), 0.0001)) * 100 - 200, 0)",
+          "legendFormat": "Anomaly",
+          "refId": "B"
+        }
+      ]
+    },
+
+    {
+      "id": 21,
+      "type": "timeseries",
+      "title": "Prompts Per Hour",
+      "description": "Count of user prompt events logged per interval. Sourced from Loki structured logs. Peaks show concentrated interaction periods; gaps are idle time between sessions.",
+      "gridPos": { "x": 8, "y": 22, "w": 8, "h": 5 },
+      "datasource": { "type": "loki", "uid": "${loki_datasource}" },
+      "options": {
+        "tooltip": { "mode": "single", "sort": "none" },
+        "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": { "mode": "fixed", "fixedColor": "green" },
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 15,
+            "gradientMode": "none",
+            "spanNulls": true,
+            "showPoints": "never",
+            "stacking": { "mode": "none", "group": "A" },
+            "axisPlacement": "auto",
+            "scaleDistribution": { "type": "linear" },
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
           }
         },
         "overrides": []
       },
       "targets": [
         {
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "sum(increase(claude_code_token_usage_tokens_total{type=\"cacheRead\"}[10m])) / sum(increase(claude_code_token_usage_tokens_total{type=~\"input|cacheRead|cacheCreation\"}[10m]))",
-          "legendFormat": "Cache Hit Rate",
+          "datasource": { "type": "loki", "uid": "${loki_datasource}" },
+          "expr": "sum(count_over_time({job=\"claude-code\"} |~ \"user_prompt\" [$__interval]))",
+          "legendFormat": "Prompts",
           "refId": "A"
         }
       ]
     },
+
     {
-      "id": 27,
-      "type": "timeseries",
-      "title": "Token Burn Rate — Tokens/min [OTEL]",
-      "description": "Tokens consumed per minute across all types. Use this to gauge proximity to your TPM (tokens per minute) rate limit. A sustained high rate approaching your plan's ceiling is the trigger to start a fresh session.",
-      "gridPos": { "x": 12, "y": 45, "w": 12, "h": 8 },
+      "id": 22,
+      "type": "piechart",
+      "title": "Tool Decision Sources (24h)",
+      "description": "How tool execution decisions were authorized over the last 24 hours. Config = approved in CLAUDE.md or settings. User temporary = approved once for the session. User permanent = added to always-allow list.",
+      "gridPos": { "x": 16, "y": 22, "w": 8, "h": 5 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "options": {
-        "tooltip": { "mode": "multi", "sort": "desc" },
-        "legend": { "displayMode": "list", "placement": "right", "calcs": [] }
+        "pieType": "donut",
+        "displayLabels": ["percent", "name"],
+        "legend": {
+          "displayMode": "list",
+          "placement": "right",
+          "calcs": []
+        },
+        "tooltip": { "mode": "single", "sort": "none" }
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
-          "decimals": 0,
           "color": { "mode": "palette-classic" },
           "custom": {
-            "lineWidth": 2,
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "spanNulls": false,
-            "showPoints": "never",
-            "stacking": { "mode": "normal", "group": "A" },
-            "axisPlacement": "auto",
-            "scaleDistribution": { "type": "linear" },
             "hideFrom": { "legend": false, "tooltip": false, "viz": false }
           }
         },
@@ -1113,268 +1099,20 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "sum by (type) (rate(claude_code_token_usage_tokens_total[10m]) * 60)",
-          "legendFormat": "{{type}}",
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "id": 34,
-      "type": "row",
-      "title": "Tool & Edit Intelligence",
-      "collapsed": false,
-      "gridPos": { "x": 0, "y": 53, "w": 24, "h": 1 }
-    },
-    {
-      "id": 35,
-      "type": "stat",
-      "title": "Edit Acceptance Rate",
-      "description": "Percentage of Claude's file edits that were accepted vs. rejected in the selected time range. Below 80% suggests Claude is producing edits that need rework.",
-      "gridPos": { "x": 0, "y": 54, "w": 6, "h": 4 },
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "options": {
-        "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
-        "orientation": "auto",
-        "textMode": "auto",
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percent",
-          "decimals": 1,
-          "color": { "mode": "thresholds" },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              { "color": "red", "value": null },
-              { "color": "yellow", "value": 60 },
-              { "color": "green", "value": 80 }
-            ]
-          },
-          "mappings": [],
-          "noValue": "No edits"
-        },
-        "overrides": []
-      },
-      "targets": [
-        {
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "sum(increase(claude_code_code_edit_tool_decision_total{decision=\"accept\"}[$__range])) / clamp_min(sum(increase(claude_code_code_edit_tool_decision_total[$__range])), 1) * 100",
+          "expr": "sum by (source) (increase(claude_code_code_edit_tool_decision_total[24h]))",
+          "legendFormat": "{{source}}",
           "instant": true,
           "refId": "A"
         }
       ]
     },
+
     {
-      "id": 36,
-      "type": "stat",
-      "title": "Active CLI Time",
-      "description": "Total time Claude Code was running and processing in the selected time range.",
-      "gridPos": { "x": 6, "y": 54, "w": 6, "h": 4 },
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "options": {
-        "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
-        "orientation": "auto",
-        "textMode": "auto",
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "center"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s",
-          "decimals": 0,
-          "color": { "mode": "thresholds" },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [{ "color": "text", "value": null }]
-          },
-          "mappings": [],
-          "noValue": "0"
-        },
-        "overrides": []
-      },
-      "targets": [
-        {
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "sum(increase(claude_code_active_time_seconds_total{type=\"cli\"}[$__range]))",
-          "instant": true,
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "id": 37,
-      "type": "stat",
-      "title": "Active User Time",
-      "description": "Total time you spent actively engaged — typing, reviewing — while Claude Code was running.",
-      "gridPos": { "x": 12, "y": 54, "w": 6, "h": 4 },
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "options": {
-        "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
-        "orientation": "auto",
-        "textMode": "auto",
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "center"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s",
-          "decimals": 0,
-          "color": { "mode": "thresholds" },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [{ "color": "text", "value": null }]
-          },
-          "mappings": [],
-          "noValue": "0"
-        },
-        "overrides": []
-      },
-      "targets": [
-        {
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "sum(increase(claude_code_active_time_seconds_total{type=\"user\"}[$__range]))",
-          "instant": true,
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "id": 38,
-      "type": "stat",
-      "title": "Total File Edits",
-      "description": "Total file edit operations (Edit, Write, NotebookEdit) attempted by Claude in the selected time range.",
-      "gridPos": { "x": 18, "y": 54, "w": 6, "h": 4 },
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "options": {
-        "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
-        "orientation": "auto",
-        "textMode": "auto",
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "center"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 0,
-          "color": { "mode": "thresholds" },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [{ "color": "text", "value": null }]
-          },
-          "mappings": [],
-          "noValue": "0"
-        },
-        "overrides": []
-      },
-      "targets": [
-        {
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "sum(increase(claude_code_code_edit_tool_decision_total[$__range]))",
-          "instant": true,
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "id": 39,
-      "type": "bargauge",
-      "title": "Edit Tool Usage",
-      "description": "Count of file edit operations by tool type in the selected time range. Edit modifies existing files; Write creates or overwrites; NotebookEdit targets Jupyter cells.",
-      "gridPos": { "x": 0, "y": 58, "w": 8, "h": 8 },
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "options": {
-        "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
-        "orientation": "horizontal",
-        "displayMode": "gradient",
-        "valueMode": "color",
-        "showUnfilled": true,
-        "minVizWidth": 0,
-        "minVizHeight": 16
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 0,
-          "color": { "mode": "palette-classic" },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [{ "color": "text", "value": null }]
-          },
-          "mappings": []
-        },
-        "overrides": []
-      },
-      "targets": [
-        {
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "sum by (tool_name) (increase(claude_code_code_edit_tool_decision_total[$__range]))",
-          "instant": true,
-          "legendFormat": "{{tool_name}}",
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "id": 40,
-      "type": "bargauge",
-      "title": "Edit Decisions — Accept vs Reject",
-      "description": "How many of Claude's proposed file edits were accepted or rejected. A high reject count points to edit quality or scope issues.",
-      "gridPos": { "x": 8, "y": 58, "w": 8, "h": 8 },
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "options": {
-        "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
-        "orientation": "horizontal",
-        "displayMode": "gradient",
-        "valueMode": "color",
-        "showUnfilled": true,
-        "minVizWidth": 0,
-        "minVizHeight": 16
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 0,
-          "color": { "mode": "palette-classic" },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [{ "color": "text", "value": null }]
-          },
-          "mappings": []
-        },
-        "overrides": [
-          {
-            "matcher": { "id": "byName", "options": "accept" },
-            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }]
-          },
-          {
-            "matcher": { "id": "byName", "options": "reject" },
-            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }]
-          }
-        ]
-      },
-      "targets": [
-        {
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "sum by (decision) (increase(claude_code_code_edit_tool_decision_total[$__range]))",
-          "instant": true,
-          "legendFormat": "{{decision}}",
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "id": 41,
+      "id": 23,
       "type": "timeseries",
-      "title": "Edit Decisions Over Time",
-      "description": "Accept and reject counts per 5-minute window. A rising reject rate mid-session often signals context drift — Claude losing track of the codebase state.",
-      "gridPos": { "x": 16, "y": 58, "w": 8, "h": 8 },
+      "title": "Code Modification Velocity (lines/min)",
+      "description": "Rate of lines added and removed per minute. Spikes indicate concentrated editing bursts. A high removed rate relative to added suggests refactoring or cleanup sessions.",
+      "gridPos": { "x": 0, "y": 27, "w": 8, "h": 5 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "options": {
         "tooltip": { "mode": "multi", "sort": "desc" },
@@ -1383,11 +1121,11 @@
       "fieldConfig": {
         "defaults": {
           "unit": "short",
-          "decimals": 0,
+          "decimals": 1,
           "color": { "mode": "palette-classic" },
           "custom": {
-            "lineWidth": 2,
-            "fillOpacity": 10,
+            "lineWidth": 1,
+            "fillOpacity": 15,
             "gradientMode": "none",
             "spanNulls": false,
             "showPoints": "never",
@@ -1395,15 +1133,19 @@
             "axisPlacement": "auto",
             "scaleDistribution": { "type": "linear" },
             "hideFrom": { "legend": false, "tooltip": false, "viz": false }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "text", "value": null }]
           }
         },
         "overrides": [
           {
-            "matcher": { "id": "byName", "options": "accept" },
+            "matcher": { "id": "byName", "options": "added" },
             "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }]
           },
           {
-            "matcher": { "id": "byName", "options": "reject" },
+            "matcher": { "id": "byName", "options": "removed" },
             "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }]
           }
         ]
@@ -1411,11 +1153,116 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "sum by (decision) (increase(claude_code_code_edit_tool_decision_total[5m]))",
-          "legendFormat": "{{decision}}",
+          "expr": "sum by (type) (rate(claude_code_lines_of_code_count_total[5m]) * 60)",
+          "legendFormat": "{{type}}",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "id": 24,
+      "type": "timeseries",
+      "title": "Token Usage Rate (24h)",
+      "description": "Tokens consumed per minute across all types. The legend table shows mean, last, and peak rates for the selected window. A sustained high rate approaching your plan's TPM ceiling is the signal to start a fresh session.",
+      "gridPos": { "x": 8, "y": 27, "w": 8, "h": 5 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": ["mean", "last", "max"]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": { "mode": "fixed", "fixedColor": "green" },
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 15,
+            "gradientMode": "none",
+            "spanNulls": false,
+            "showPoints": "never",
+            "stacking": { "mode": "none", "group": "A" },
+            "axisPlacement": "auto",
+            "scaleDistribution": { "type": "linear" },
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "sum(rate(claude_code_token_usage_tokens_total[5m]) * 60)",
+          "legendFormat": "Total Token Rate",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "id": 25,
+      "type": "barchart",
+      "title": "Token Volume by Type (24h)",
+      "description": "Total token counts for each type over the last 24 hours. cacheRead should dwarf input in a well-cached workflow — that gap represents your cache efficiency. cacheCreation is the one-time cost to prime the cache.",
+      "gridPos": { "x": 16, "y": 27, "w": 8, "h": 5 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "options": {
+        "orientation": "horizontal",
+        "xTickLabelRotation": 0,
+        "fillOpacity": 80,
+        "gradientMode": "none",
+        "tooltip": { "mode": "single", "sort": "none" },
+        "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] },
+        "barWidth": 0.7,
+        "groupWidth": 0.7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineWidth": 1,
+            "axisPlacement": "auto"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "text", "value": null }]
+          }
+        },
+        "overrides": []
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": { "Time": true, "__name__": true, "instance": true, "job": true, "model": true, "session_id": true }
+          }
+        }
+      ],
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "sum by (type) (increase(claude_code_token_usage_tokens_total[24h]))",
+          "legendFormat": "{{type}}",
+          "instant": true,
+          "format": "table",
           "refId": "A"
         }
       ]
     }
+
   ]
 }
