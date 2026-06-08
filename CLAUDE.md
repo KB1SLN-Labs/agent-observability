@@ -13,6 +13,10 @@ When saving new memories or updating existing ones during a session:
 - Keep `.claude/memory/MEMORY.md` up to date as the index
 - Do NOT write to or sync with the global `~/.claude/projects/` directory — this project is self-contained and other projects have no need for this context
 
+## Task execution
+
+For each task, first assess whether it can be split into independent chunks. If it can, break the work across parallel agents instead of doing everything sequentially.
+
 ## Project context
 
 This is a pure infrastructure/config project — no application code. Changes are made locally and pushed to GitHub, then pulled and applied on the K8s cluster (`clus01-master`). See `.claude/memory/project-overview.md` for full context.
