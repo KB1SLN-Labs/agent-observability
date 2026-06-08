@@ -281,13 +281,15 @@ cd claude-code-observability
 **2. Install the chart:**
 
 ```bash
-helm install claude-code ./helm --namespace claude-code-observability --create-namespace
+helm upgrade --install claude-code ./helm --namespace claude-code-observability --create-namespace
 ```
+
+`upgrade --install` is safe to run multiple times — it installs on first run and upgrades on subsequent runs. Use it for both fresh installs and updates.
 
 To override defaults — for example, to use a specific StorageClass or switch to NodePort:
 
 ```bash
-helm install claude-code ./helm \
+helm upgrade --install claude-code ./helm \
   --namespace claude-code-observability \
   --create-namespace \
   --set prometheus.persistence.storageClass=standard \
@@ -339,7 +341,7 @@ All values are in `helm/values.yaml`. The most commonly changed ones:
 ### Upgrading
 
 ```bash
-helm upgrade claude-code ./helm --namespace claude-code-observability
+helm upgrade --install claude-code ./helm --namespace claude-code-observability
 ```
 
 Upgrades do not affect existing PersistentVolumeClaims or stored data.
