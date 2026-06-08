@@ -3,7 +3,7 @@
   "description": "Claude Code usage — cost, tokens, and activity",
   "editable": true,
   "fiscalYearStartMonth": 0,
-  "graphTooltip": 1,
+  "graphTooltip": 0,
   "id": null,
   "links": [],
   "refresh": "5m",
@@ -449,7 +449,7 @@
       "type": "table",
       "title": "Token Volume by Type [OTEL]",
       "description": "Cumulative token counts split by type. cacheRead dwarfing input is a sign of an efficient, well-cached workflow.",
-      "gridPos": { "x": 0, "y": 19, "w": 4, "h": 5 },
+      "gridPos": { "x": 0, "y": 19, "w": 4, "h": 8 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "options": {
         "showHeader": true,
@@ -530,7 +530,7 @@
       "type": "table",
       "title": "Total Cost by Session — Top 10 [OTEL]",
       "description": "Most expensive sessions in the selected time range. A single session dominating the list usually means a very long context window or heavy Opus usage.",
-      "gridPos": { "x": 9, "y": 19, "w": 7, "h": 8 },
+      "gridPos": { "x": 9, "y": 19, "w": 6, "h": 8 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "options": {
         "showHeader": true,
@@ -548,12 +548,6 @@
               { "id": "decimals", "value": 2 },
               { "id": "custom.width", "value": 90 }
             ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "session_id" },
-            "properties": [
-              { "id": "custom.displayMode", "value": "auto" }
-            ]
           }
         ]
       },
@@ -562,7 +556,8 @@
           "id": "organize",
           "options": {
             "excludeByName": { "Time": true, "__name__": true, "instance": true, "job": true },
-            "renameByName": { "Value": "cost" }
+            "renameByName": { "Value": "cost" },
+            "indexByName": { "Value": 0, "session_id": 1 }
           }
         }
       ],
@@ -581,7 +576,7 @@
       "type": "stat",
       "title": "Cost per 1k Output Tokens [OTEL]",
       "description": "Effective cost per 1,000 output tokens across all sessions. Higher than expected means heavy Opus usage or poor cache reuse driving up context costs. Benchmark: Sonnet ≈$0.015, Opus ≈$0.075.",
-      "gridPos": { "x": 16, "y": 19, "w": 4, "h": 4 },
+      "gridPos": { "x": 15, "y": 19, "w": 5, "h": 4 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "options": {
         "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
@@ -623,7 +618,7 @@
       "type": "stat",
       "title": "Cache Reuse Ratio [OTEL]",
       "description": "cacheRead tokens divided by cacheCreation tokens. How many times each cached block is being reused on average. Above 5 is good — cache is paying for itself. Below 2 means you're writing cache entries that rarely get reused.",
-      "gridPos": { "x": 16, "y": 23, "w": 4, "h": 4 },
+      "gridPos": { "x": 15, "y": 23, "w": 5, "h": 4 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "options": {
         "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
