@@ -3,3 +3,4 @@ docker-compose.override.yml
 otel-collector/config.local.yaml
 .env
 .env.grafana-cloud
+helm/values.local.yaml

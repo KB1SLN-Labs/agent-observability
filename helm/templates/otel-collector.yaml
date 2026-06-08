@@ -24,6 +24,11 @@ data:
       memory_limiter:
         check_interval: 1s
         limit_mib: 256
+{{- if .Values.dynatrace.enabled }}
+
+      deltatocumulative:
+        max_stale: 5m
+{{- end }}
 
     exporters:
       prometheusremotewrite:
@@ -40,18 +45,25 @@ data:
           job: true
         tls:
           insecure: true
+{{- if .Values.dynatrace.enabled }}
+
+      otlphttp/dynatrace:
+        endpoint: ${env:DT_OTLP_ENDPOINT}
+        headers:
+          Authorization: "Api-Token ${env:DT_API_TOKEN}"
+{{- end }}
 
     service:
       pipelines:
         metrics:
           receivers: [otlp]
-          processors: [memory_limiter, batch]
-          exporters: [prometheusremotewrite]
+          processors: [memory_limiter,{{ if .Values.dynatrace.enabled }} deltatocumulative,{{ end }} batch]
+          exporters: [prometheusremotewrite{{ if .Values.dynatrace.enabled }}, otlphttp/dynatrace{{ end }}]
 
         logs:
           receivers: [otlp]
           processors: [memory_limiter, batch]
-          exporters: [loki]
+          exporters: [loki{{ if .Values.dynatrace.enabled }}, otlphttp/dynatrace{{ end }}]
 
 ---
 apiVersion: apps/v1
@@ -75,6 +87,11 @@ spec:
         - name: otel-collector
           image: {{ .Values.otelCollector.image }}
           args: ["--config=/etc/otel/config.yaml"]
+          {{- if .Values.dynatrace.enabled }}
+          envFrom:
+            - secretRef:
+                name: {{ .Values.dynatrace.secretName }}
+          {{- end }}
           ports:
             - containerPort: 4317
             - containerPort: 4318
