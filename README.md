@@ -6,14 +6,17 @@ A self-hosted monitoring stack for [Claude Code](https://claude.ai/code). Claude
 
 ## What you get
 
-- Real-time cost burn rate with 24-hour totals and 7-day rolling average
-- Token usage broken down by type (input, output, cacheRead, cacheCreation)
-- Cache efficiency tracking — hit rate over time and reuse ratio
-- Per-model cost and token efficiency comparison
-- Context snowball detection — catch runaway context before it hits the TPM ceiling
-- Lines of code added/removed with daily and weekly averages
-- Commit tracking over time
+- Real-time cost burn rate with today-vs-yesterday trend indicators and 7-day rolling averages
+- Subagent vs. main session cost split — see how much of your spend is autonomous parallel work
+- Cost forecasting — daily and monthly projections from the current burn rate
+- Cost anomaly detection — hourly deviation from your 7-day historical baseline
+- Per-model token efficiency comparison (tokens per dollar)
+- Cache hit rate tracking with threshold indicators
+- Lines of code added and removed with daily and 7-day averages
 - File edit acceptance vs. rejection rate
+- Tool usage breakdown by type, sourced from structured logs
+- Tool decision authorization sources — config vs. user-approved
+- Prompt frequency and character length distribution
 - Active CLI and user time
 - Raw log stream with level filtering and session drill-down
 
@@ -85,126 +88,108 @@ There are two dashboards: **Claude Code** (main) and **Claude Code — Logs**.
 
 ### Claude Code (main)
 
-The default time range is the last 24 hours. The dashboard refreshes every 5 minutes.
+The default time range is the last 24 hours. The dashboard refreshes every 5 minutes. Most stat panels show a current value alongside a 7-day rolling average. Panels with sparklines also show a percentage change indicator comparing the current 24-hour window to the same window yesterday.
 
 ---
 
-#### Key Numbers
+#### Cost Summary
 
-Eight stat tiles across the top. All values are scoped to the last 24 hours unless noted.
+Five stat panels across the top row.
 
-**Cost Burn Rate ($/hr)**
-Average spend rate in dollars per hour, calculated over the last 30 minutes and annualized. If you spent $1.50 in the last 30 minutes, this shows $3.00/hr. The window is intentionally wide — Claude Code emits metrics per API turn, not continuously, so a shorter window zeros out between turns. Background turns green below $0.50/hr, yellow up to $2.00/hr, red above that.
+**Real-Time Cost Burn Rate**
+Current spend rate in dollars per hour, calculated from a 30-minute trailing window. The window is intentionally wide — Claude Code emits metrics per API turn rather than continuously, so a shorter window zeros out between turns. Background turns green below $0.50/hr, yellow up to $2.00/hr, red above.
 
-**Cost Today**
-Total API spend in the last 24 hours across all sessions and models.
+**Total Cost Today**
+Total API spend in the last 24 hours alongside the 7-day rolling daily average. The percentage change compares today's 24-hour window to yesterday's. If today is well above your 7-day average and trending up, check whether a session is accumulating more context than usual.
 
-**7-Day Avg Cost**
-Rolling average of daily cost over the past 7 days. Compare it against Cost Today — if today is significantly above the 7-day average, you're having an expensive session.
+**Subagent Cost (24h)**
+Cost attributed to spawned subagent tasks — parallel research, background code review, multi-agent work. Compare against Main Session Cost to understand what fraction of your spend is autonomous parallel work versus direct conversation. Includes the 7-day average and today-vs-yesterday change.
 
-**Cost per Session**
-Cost Today divided by Sessions Today. A rising number over days usually means context is snowballing — sessions are running longer and accumulating more tokens before being reset.
+**Main Session Cost (24h)**
+Cost from primary conversation turns: your prompts and Claude's direct responses. Excludes subagent and auxiliary tasks. Includes the 7-day average and percentage change.
 
-**Cache Hit Rate**
-Percentage of input-side tokens served from Anthropic's prompt cache. Above 80% is healthy — cache is doing its job. Below 60% is a signal to investigate: either context is growing too fast, or cache blocks are being invalidated frequently. Background turns red below 60%, yellow up to 80%, green above.
-
-**Tokens Today**
-All tokens consumed in the last 24 hours across all four types.
-
-**Tokens per Session**
-Tokens Today divided by Sessions Today. Useful for spotting sessions that are consuming disproportionately more tokens than usual.
-
-**Sessions Today**
-Number of Claude Code sessions in the last 24 hours.
+**Code Edit Acceptance Rate %**
+Percentage of Claude's proposed file edits that were accepted in the last 24 hours, plus the 7-day average. Below 80% is worth investigating — the most common causes are context drift mid-session, an ambiguous task description, or Claude losing track of the codebase structure. Background turns red below 60%, yellow up to 80%, green above. Shows "No edits" if no edit activity occurred in the window.
 
 ---
 
-#### Token Activity
+#### Projections and Per-Session Metrics
 
-**Token Burn Rate — All Types Over Time**
-Token consumption rate broken down by type: input, output, cacheRead, cacheCreation. In a healthy long session, cacheRead should dominate. A spike in input without a matching cacheRead rise means the context is growing without hitting cache.
+**Cost Forecast**
+Daily and monthly cost projections extrapolated from the current 6-hour burn rate. Useful for catching a runaway session before the bill arrives. Because it uses a 6-hour window, the number smooths out short spikes and reflects sustained activity.
 
-**Input vs Cache Read — Context Snowball Detector**
-Focused view of just input and cacheRead tokens. When input climbs toward or above cacheRead, context is snowballing — the model is processing more new tokens than cached ones each turn. This is the signal to run `/compact` before you hit the TPM ceiling.
+**Average Cost / Session**
+Average API spend per session over the last 24 hours compared to the 7-day average. A rising number over multiple days usually means sessions are running longer without being compacted — context accumulates and each turn costs more to process.
 
-**Cost Burn Rate by Model — $/min**
-Real-time cost per minute broken down by model. Opus appearing here at scale is the most common cause of unexpected bills. If a task doesn't require Opus-level reasoning, check whether Sonnet or Haiku could handle it.
+**Cost per 1K Tokens**
+Effective cost per 1,000 tokens across all token types. Cache reads cost roughly 10% of input price, so a well-cached workflow will push this number well below the model's headline rate. Includes the 7-day average and percentage change. Rising cost-per-token despite stable usage typically means cache efficiency has dropped.
 
----
+**Active Time (24h)**
+Two values side by side: CLI time (how long Claude Code was running and processing) and User time (how long you were actively engaged — typing, reviewing). A high CLI-to-user ratio means Claude is doing a lot of autonomous work between your interactions.
 
-#### Token Breakdown
-
-**Token Volume by Type**
-Cumulative token counts split by type. cacheRead dwarfing input is the signature of an efficient, well-cached workflow.
-
-**Total Cost by Session — Top 10**
-Most expensive sessions in the selected time range. A single session dominating this table usually means a very long context window or heavy Opus usage.
-
-**Cost per 1k Output Tokens**
-Effective cost per 1,000 output tokens across all sessions. Benchmark: Sonnet is around $0.015 per 1k output tokens, Opus is around $0.075. Higher than expected means Opus is being used heavily or poor cache reuse is driving up context costs.
-
-**Cache Reuse Ratio**
-cacheRead tokens divided by cacheCreation tokens — how many times each cached block is being reused on average. Above 5 means the cache is paying for itself. Below 2 means you're writing cache entries that rarely get reused.
-
-**Session Count Over Time**
-Active sessions per interval. Each line is a distinct session ID. Overlapping lines mean concurrent Claude Code sessions are running.
+**Token Distribution by Model (24h)**
+Pie chart showing the share of total tokens consumed by each model. Sonnet dominating is expected for most workloads. A large Opus slice is worth checking — Opus costs roughly 5x Sonnet per token, and many tasks don't require it.
 
 ---
 
-#### Development Output
+#### Session Volume
+
+**Active Sessions (24h)**
+Number of Claude Code sessions started in the last 24 hours, alongside the 7-day daily average and today-vs-yesterday change.
+
+**Average Session Metrics**
+Three horizontal bars showing per-session averages across the last 24 hours: cost ($), total token count, and active CLI time. Rising values across multiple days point to sessions accumulating context without being reset. A useful complement to Average Cost / Session — if cost is rising but token count is flat, a more expensive model is being used more often.
 
 **Lines of Code Modified**
-Horizontal bar gauge showing lines added and removed. Each metric has a Today value (last 24h) and a 7 Day Avg (rolling daily average over the past week). Comparing Today vs. 7 Day Avg shows whether the current day is above or below your normal output.
+Lines added and deleted today alongside 7-day rolling daily averages for each. A large gap between Today and 7 Day Avg indicates an unusually active or unusually quiet day.
+
+---
+
+#### Cache and Token Health
+
+**Cache Hit Rate %**
+Percentage of input-side tokens served from Anthropic's prompt cache. Above 80% is healthy. Below 60% is a signal to investigate — sessions may be too short to warm the cache effectively, or context structure is preventing cache blocks from being reused. Gauge arc turns red below 60%, yellow up to 80%, green above.
+
+**Total Tokens Today**
+All tokens consumed in the last 24 hours across all types, alongside the 7-day daily average.
 
 **Model Token Efficiency (tokens/$)**
-Total tokens per dollar spent, broken down by model. Higher is more efficient — you get more tokens for your money. Haiku should significantly outperform Opus here given the price difference. If the gap is smaller than expected, check whether model selection is being overridden somewhere.
+Total tokens per dollar spent, broken down by model, over the selected time range. Higher is more efficient. Haiku should significantly outperform Opus given the price difference. If the gap is narrower than expected, check whether model selection is being overridden somewhere.
 
-**Weekly Token Usage**
-Total tokens consumed in the last 7 days. The sparkline shows the daily trend — a rising slope means usage is accelerating.
-
-**Total Commits**
-Commits made during Claude Code sessions in the selected time range.
-
-**Lines of Code (timeseries)**
-Lines added and removed over time. Added is green, removed is red. Useful for seeing when in a session code was written versus deleted.
-
-**Commits over Time**
-Commit frequency as a timeseries. Spikes indicate concentrated commit activity during a session.
+**Tool Usage Breakdown**
+Donut chart of tool calls by type over the selected time range, sourced from structured logs. Covers all tools: Bash, Read, Edit, Write, Glob, Grep, and others. Heavy Bash usage looks like a lot of shell-and-test work; heavy Edit/Write usage is more code generation. Useful for understanding what kind of work Claude is actually doing.
 
 ---
 
-#### Rate Limit Proximity & Cache Health
+#### Trends and History
 
-**Cache Hit Rate Over Time**
-Cache hit rate trend over the selected time window with threshold bands drawn at 60% (yellow) and 80% (green). Sustained drops below 80% are a signal to restructure long sessions. A sudden mid-session drop usually means a large new block of text invalidated the cache.
+**Peak Cost Hours**
+API spend per hour displayed as a bar chart. Spikes show which hours were most expensive. Useful for correlating high-cost periods with specific tasks or sessions you remember running.
 
-**Token Burn Rate — Tokens/min**
-Tokens consumed per minute across all types, stacked. Use this to gauge proximity to your TPM rate limit. A sustained high rate approaching your plan's ceiling is the trigger to start a fresh session.
+**Weekly Total Token Usage**
+Total tokens consumed over the last 7 days with a sparkline showing the daily trend. A consistently rising slope means usage is accelerating week over week.
+
+**Cost Anomaly Detection**
+Hourly spend expressed as percentage deviation from the 7-day historical average for the same hour. A value of 0% means today's spend exactly matches the historical average; 200% means it's three times higher. Excursions above 200% are flagged in red as anomalies — investigate what was running during those periods.
+
+**Prompts Per Hour**
+Count of user prompt events over a rolling 1-hour window, sourced from structured logs. Peaks show concentrated interaction periods; flat sections are idle time. If this number looks too low, check that structured log export is reaching Loki.
+
+**Tool Decision Sources (24h)**
+Donut chart showing how tool executions were authorized: via CLAUDE.md or settings (`config`), approved once for the session (`user temporary`), or added to the permanent allow list (`user permanent`). A high `user temporary` fraction means you're approving many tools interactively that could be moved to config.
 
 ---
 
-#### Tool & Edit Intelligence
+#### Rates and Distributions
 
-**Edit Acceptance Rate**
-Percentage of Claude's file edits that were accepted versus rejected in the selected time range. Below 80% suggests Claude is producing edits that need rework — often a sign of context drift or an ambiguous task description. Background turns red below 60%, yellow up to 80%, green above.
+**Code Modification Velocity (lines/min)**
+Lines added and removed per minute as a timeseries. Green is additions, red is removals. Spikes indicate concentrated editing bursts. A sustained high removal rate relative to additions typically means refactoring or large-scale cleanup.
 
-**Active CLI Time**
-Total time Claude Code was running and processing in the selected time range.
+**Token Usage Rate (24h)**
+Total tokens consumed per minute. The legend table shows mean, last, and peak rates for the selected window. Use this to gauge proximity to your plan's TPM rate limit. If the rate approaches your ceiling, starting a fresh session or running `/compact` is the appropriate response.
 
-**Active User Time**
-Total time you spent actively engaged — typing, reviewing — while Claude Code was running.
-
-**Total File Edits**
-Total file edit operations (Edit, Write, NotebookEdit) attempted by Claude in the selected time range.
-
-**Edit Tool Usage**
-Horizontal bar gauge showing edit operation counts by tool type. Edit modifies existing files in-place. Write creates or fully overwrites files. NotebookEdit targets Jupyter notebook cells.
-
-**Edit Decisions — Accept vs Reject**
-Accept count in green, reject count in red. A high reject count relative to accepts points to edit quality or scope issues.
-
-**Edit Decisions Over Time**
-Accept and reject counts per 5-minute window. A rising reject rate mid-session often signals context drift — Claude losing track of the codebase state as context grows.
+**Prompt Length Distribution (chars)**
+Character count distribution across five buckets: under 100, 100–499, 500–999, 1k–4.9k, and 5k+, sourced from structured logs. Most prompts are short. Long prompts (1k+) usually indicate pasted code, error output, or a detailed task description. A spike in the 5k+ bucket during a session that went expensive is often the explanation.
 
 ---
 
@@ -213,10 +198,10 @@ Accept and reject counts per 5-minute window. A rising reject rate mid-session o
 A dedicated log explorer linked from the main dashboard. Filter by severity level and optionally paste a session ID to scope to a single session.
 
 **Errors / Warnings / Total Entries / Active Sessions**
-Stat tiles showing counts for the selected time range. Use these to quickly gauge whether a period of activity had unusual error rates before opening the log stream.
+Stat tiles showing counts for the selected time range. Use these to quickly gauge whether a period had unusual error rates before opening the full log stream.
 
 **Log Volume Over Time**
-Error, warning, and total log entry counts per minute as a timeseries. Error and warning spikes here are the signal to scroll down and investigate the log stream.
+Error, warning, and total log entry counts per minute as a timeseries. Error and warning spikes here are the signal to scroll down and investigate.
 
 **Log Stream**
 Full filterable log stream. Set the Level variable to narrow by severity. Paste a session ID in the Session ID field to isolate a single session. Click any row to expand the full structured payload.
