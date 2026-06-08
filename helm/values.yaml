@@ -58,5 +58,3 @@ grafana:
       cpu: 200m
       memory: 256Mi
 
-## Set to false if the namespace already exists or you are managing it externally.
-createNamespace: true
