@@ -870,8 +870,8 @@
       "targets": [
         {
           "datasource": { "type": "loki", "uid": "${loki_datasource}" },
-          "expr": "sum by (tool_name) (count_over_time({job=\"claude-code\"} |= \"tool_decision\" | json tool_name=\"attributes.tool_name\" [$__range]))",
-          "legendFormat": "{{tool_name}}",
+          "expr": "sum by (attributes_tool_name) (count_over_time({job=\"claude-code\"} |= \"tool_decision\" | json [$__range]))",
+          "legendFormat": "{{attributes_tool_name}}",
           "instant": true,
           "refId": "A"
         }
@@ -1099,8 +1099,8 @@
       "targets": [
         {
           "datasource": { "type": "loki", "uid": "${loki_datasource}" },
-          "expr": "sum by (source) (count_over_time({job=\"claude-code\"} |= \"tool_decision\" | json source=\"attributes.source\" [$__range]))",
-          "legendFormat": "{{source}}",
+          "expr": "sum by (attributes_source) (count_over_time({job=\"claude-code\"} |= \"tool_decision\" | json [$__range]))",
+          "legendFormat": "{{attributes_source}}",
           "instant": true,
           "refId": "A"
         }
@@ -1240,35 +1240,35 @@
       "targets": [
         {
           "datasource": { "type": "loki", "uid": "${loki_datasource}" },
-          "expr": "sum(count_over_time({job=\"claude-code\"} |= \"user_prompt\" | json prompt_length=\"attributes.prompt_length\" | prompt_length =~ \"^[0-9]{1,2}$\" [$__range]))",
+          "expr": "sum(count_over_time({job=\"claude-code\"} |= \"user_prompt\" | json | attributes_prompt_length =~ \"^[0-9]{1,2}$\" [$__range]))",
           "legendFormat": "< 100",
           "instant": true,
           "refId": "A"
         },
         {
           "datasource": { "type": "loki", "uid": "${loki_datasource}" },
-          "expr": "sum(count_over_time({job=\"claude-code\"} |= \"user_prompt\" | json prompt_length=\"attributes.prompt_length\" | prompt_length =~ \"^[1-4][0-9]{2}$\" [$__range]))",
+          "expr": "sum(count_over_time({job=\"claude-code\"} |= \"user_prompt\" | json | attributes_prompt_length =~ \"^[1-4][0-9]{2}$\" [$__range]))",
           "legendFormat": "100 – 499",
           "instant": true,
           "refId": "B"
         },
         {
           "datasource": { "type": "loki", "uid": "${loki_datasource}" },
-          "expr": "sum(count_over_time({job=\"claude-code\"} |= \"user_prompt\" | json prompt_length=\"attributes.prompt_length\" | prompt_length =~ \"^[5-9][0-9]{2}$\" [$__range]))",
+          "expr": "sum(count_over_time({job=\"claude-code\"} |= \"user_prompt\" | json | attributes_prompt_length =~ \"^[5-9][0-9]{2}$\" [$__range]))",
           "legendFormat": "500 – 999",
           "instant": true,
           "refId": "C"
         },
         {
           "datasource": { "type": "loki", "uid": "${loki_datasource}" },
-          "expr": "sum(count_over_time({job=\"claude-code\"} |= \"user_prompt\" | json prompt_length=\"attributes.prompt_length\" | prompt_length =~ \"^[1-4][0-9]{3}$\" [$__range]))",
+          "expr": "sum(count_over_time({job=\"claude-code\"} |= \"user_prompt\" | json | attributes_prompt_length =~ \"^[1-4][0-9]{3}$\" [$__range]))",
           "legendFormat": "1k – 4.9k",
           "instant": true,
           "refId": "D"
         },
         {
           "datasource": { "type": "loki", "uid": "${loki_datasource}" },
-          "expr": "sum(count_over_time({job=\"claude-code\"} |= \"user_prompt\" | json prompt_length=\"attributes.prompt_length\" | prompt_length =~ \"^([5-9][0-9]{3}|[0-9]{5,})$\" [$__range]))",
+          "expr": "sum(count_over_time({job=\"claude-code\"} |= \"user_prompt\" | json | attributes_prompt_length =~ \"^([5-9][0-9]{3}|[0-9]{5,})$\" [$__range]))",
           "legendFormat": "5k+",
           "instant": true,
           "refId": "E"
