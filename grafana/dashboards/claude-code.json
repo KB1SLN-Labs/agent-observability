@@ -53,7 +53,7 @@
       "gridPos": { "x": 0, "y": 0, "w": 20, "h": 4 },
       "options": {
         "mode": "markdown",
-        "content": "**Token types** — `input`: everything sent to the model per turn (history + system prompt + your message), grows as context accumulates · `cacheRead`: tokens served from Anthropic cache at ≈50% cost, should dominate in a healthy session · `output`: model response tokens · `cacheCreation`: new cache entries written this turn, small one-time cost to prime future reads\n\n**Watch for** — Token burn spike → approaching TPM ceiling, start a fresh session · `input` rising toward `cacheRead` → context snowballing, run `/compact` · Cache hit below 80% → cache not reusing effectively · Opus dominating cost → check if Sonnet or Haiku handles the task"
+        "content": "**Token types**\n- `input` — everything sent to the model per turn (history + system prompt + your message); grows as context accumulates\n- `cacheRead` — tokens served from Anthropic cache at ~50% cost; should dominate in a healthy session\n- `output` — model response tokens\n- `cacheCreation` — new cache entries written this turn; small one-time cost to prime future reads\n\n**Watch for**\n- Token burn spike → approaching TPM limit; start a fresh session\n- `input` rising toward `cacheRead` → context snowballing; run `/compact`\n- Cache hit below 80% → cache not reusing effectively\n- Opus dominating cost → check if Sonnet or Haiku handles the task"
       }
     },
     {
