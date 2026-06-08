@@ -1009,35 +1009,14 @@
       ]
     },
     {
-      "id": 28,
-      "type": "row",
-      "title": "Logs",
-      "collapsed": false,
-      "gridPos": { "x": 0, "y": 49, "w": 24, "h": 1 }
-    },
-    {
-      "id": 25,
-      "type": "logs",
-      "title": "Logs",
-      "gridPos": { "x": 0, "y": 50, "w": 24, "h": 8 },
-      "datasource": { "type": "loki", "uid": "${loki_datasource}" },
+      "id": 32,
+      "type": "text",
+      "title": "",
+      "gridPos": { "x": 0, "y": 49, "w": 24, "h": 2 },
       "options": {
-        "dedupStrategy": "none",
-        "enableLogDetails": true,
-        "prettifyLogMessage": false,
-        "showCommonLabels": false,
-        "showLabels": false,
-        "showTime": true,
-        "sortOrder": "Descending",
-        "wrapLogMessage": false
-      },
-      "targets": [
-        {
-          "datasource": { "type": "loki", "uid": "${loki_datasource}" },
-          "expr": "{job=\"claude-code\"}",
-          "refId": "A"
-        }
-      ]
+        "mode": "markdown",
+        "content": "**Logs** — Raw log stream with level and session filtering: [Claude Code — Logs →](/d/claude-code-logs)"
+      }
     }
   ]
 }
