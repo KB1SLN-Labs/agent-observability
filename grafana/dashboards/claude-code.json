@@ -77,7 +77,7 @@
       "id": 45,
       "type": "stat",
       "title": "Cost Burn Rate ($/hr)",
-      "description": "Real-time cost in dollars per hour based on the last 5 minutes of activity. A spike here means Opus is running or a large context window is in play.",
+      "description": "Average cost burn rate in dollars per hour, calculated over the last 30 minutes. Annualizes your recent spend pace — if you spent $1.50 in the last 30 minutes this shows $3.00/hr. Won't zero out between turns.",
       "gridPos": { "x": 0, "y": 5, "w": 3, "h": 4 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "options": {
@@ -108,7 +108,7 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "sum(rate(claude_code_cost_usage_USD_total[5m])) * 3600",
+          "expr": "sum(rate(claude_code_cost_usage_USD_total[30m])) * 3600",
           "legendFormat": "$/hr",
           "refId": "A"
         }
