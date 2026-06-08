@@ -497,78 +497,31 @@
     },
     {
       "id": 15,
-      "type": "table",
-      "title": "Token Efficiency — Cache Hit % · Input · Cache Read · Output · Cache Creation [OTEL]",
-      "description": "All four token type totals side by side. The ratio of cache_read_total to input_total is your effective cache hit rate.",
-      "gridPos": { "x": 4, "y": 19, "w": 7, "h": 8 },
+      "type": "piechart",
+      "title": "Token Distribution by Type [OTEL]",
+      "description": "Share of total tokens consumed by each type. A healthy session has cacheRead as the dominant slice. input and cacheCreation growing relative to cacheRead means the cache is not being reused effectively.",
+      "gridPos": { "x": 4, "y": 19, "w": 6, "h": 8 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "options": { "showHeader": true },
+      "options": {
+        "pieType": "donut",
+        "tooltip": { "mode": "single", "sort": "none" },
+        "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] },
+        "displayLabels": ["percent"]
+      },
       "fieldConfig": {
         "defaults": {
-          "custom": { "align": "auto", "displayMode": "auto" }
+          "unit": "short",
+          "color": { "mode": "palette-classic" }
         },
-        "overrides": [
-          {
-            "matcher": { "id": "byName", "options": "input_total" },
-            "properties": [{ "id": "unit", "value": "short" }, { "id": "decimals", "value": 0 }]
-          },
-          {
-            "matcher": { "id": "byName", "options": "cache_read_total" },
-            "properties": [{ "id": "unit", "value": "short" }, { "id": "decimals", "value": 0 }]
-          },
-          {
-            "matcher": { "id": "byName", "options": "output_total" },
-            "properties": [{ "id": "unit", "value": "short" }, { "id": "decimals", "value": 0 }]
-          },
-          {
-            "matcher": { "id": "byName", "options": "cache_creation_total" },
-            "properties": [{ "id": "unit", "value": "short" }, { "id": "decimals", "value": 0 }]
-          }
-        ]
+        "overrides": []
       },
-      "transformations": [
-        { "id": "merge", "options": {} },
-        {
-          "id": "organize",
-          "options": {
-            "excludeByName": { "Time": true, "__name__": true, "instance": true, "job": true },
-            "renameByName": {
-              "Value #A": "input_total",
-              "Value #B": "cache_read_total",
-              "Value #C": "output_total",
-              "Value #D": "cache_creation_total"
-            }
-          }
-        }
-      ],
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "sum(claude_code_token_usage_tokens_total{type=\"input\"})",
-          "format": "table",
-          "instant": true,
-          "refId": "A"
-        },
-        {
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "sum(claude_code_token_usage_tokens_total{type=\"cacheRead\"})",
-          "format": "table",
-          "instant": true,
-          "refId": "B"
-        },
-        {
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "sum(claude_code_token_usage_tokens_total{type=\"output\"})",
-          "format": "table",
-          "instant": true,
-          "refId": "C"
-        },
-        {
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "sum(claude_code_token_usage_tokens_total{type=\"cacheCreation\"})",
-          "format": "table",
-          "instant": true,
-          "refId": "D"
+          "expr": "sum by (type) (claude_code_token_usage_tokens_total)",
+          "legendFormat": "{{type}}",
+          "refId": "A",
+          "instant": true
         }
       ]
     },
@@ -577,11 +530,11 @@
       "type": "table",
       "title": "Total Cost by Session — Top 10 [OTEL]",
       "description": "Most expensive sessions in the selected time range. A single session dominating the list usually means a very long context window or heavy Opus usage.",
-      "gridPos": { "x": 11, "y": 19, "w": 9, "h": 8 },
+      "gridPos": { "x": 10, "y": 19, "w": 10, "h": 8 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "options": {
         "showHeader": true,
-        "sortBy": [{ "displayName": "total_cost_usd", "desc": true }]
+        "sortBy": [{ "displayName": "cost", "desc": true }]
       },
       "fieldConfig": {
         "defaults": {
@@ -589,11 +542,11 @@
         },
         "overrides": [
           {
-            "matcher": { "id": "byName", "options": "total_cost_usd" },
+            "matcher": { "id": "byName", "options": "cost" },
             "properties": [
               { "id": "unit", "value": "currencyUSD" },
               { "id": "decimals", "value": 2 },
-              { "id": "custom.width", "value": 110 }
+              { "id": "custom.width", "value": 90 }
             ]
           },
           {
@@ -609,7 +562,7 @@
           "id": "organize",
           "options": {
             "excludeByName": { "Time": true, "__name__": true, "instance": true, "job": true },
-            "renameByName": { "Value": "total_cost_usd" }
+            "renameByName": { "Value": "cost" }
           }
         }
       ],
