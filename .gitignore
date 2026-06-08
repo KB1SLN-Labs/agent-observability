@@ -1,3 +1,6 @@
+# claude code memory — personal session notes
+.claude/
+
 # local testing overrides — never commit these
 docker-compose.override.yml
 otel-collector/config.local.yaml
