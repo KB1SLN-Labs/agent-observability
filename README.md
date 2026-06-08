@@ -1,28 +1,25 @@
 # claude-code-observability
 
-A self-hosted monitoring stack for [Claude Code](https://claude.ai/code). Claude Code already emits OpenTelemetry data — this stack gives you somewhere useful to send it.
+A self-hosted monitoring stack for [Claude Code](https://claude.ai/code). All telemetry stays in your own environment — nothing is sent to Anthropic or any third-party service. Claude Code already emits OpenTelemetry data on every API interaction; this stack collects it, stores it, and surfaces it as a Grafana dashboard.
 
 **Stack:** OpenTelemetry Collector → Prometheus (metrics) + Loki (logs) → Grafana
 
 ## What you get
 
-- Real-time cost burn rate with today-vs-yesterday trend indicators and 7-day rolling averages
-- Subagent vs. main session cost split — see how much of your spend is autonomous parallel work
-- Cost forecasting — daily and monthly projections from the current burn rate
-- Cost anomaly detection — hourly deviation from your 7-day historical baseline
-- Per-model token efficiency comparison (tokens per dollar)
-- Cache hit rate tracking with threshold indicators
-- Lines of code added and removed with daily and 7-day averages
-- File edit acceptance vs. rejection rate
-- Tool usage breakdown by type, sourced from structured logs
-- Tool decision authorization sources — config vs. user-approved
-- Prompt frequency and character length distribution
-- Active CLI and user time
-- Raw log stream with level filtering and session drill-down
+- Real-time API cost burn rate with trend comparison against yesterday and your 7-day average
+- Subagent vs. main session cost breakdown — how much of your spend is autonomous work vs. direct conversation
+- Daily and monthly cost forecasts, plus anomaly detection when an hour's spend deviates from your historical baseline
+- Cache hit rate and cost per 1K tokens — whether your workflow is getting value from prompt caching
+- Per-model token efficiency — tokens per dollar across Haiku, Sonnet, and Opus
+- Lines of code added and removed, with edit acceptance rate and modification velocity
+- Tool call breakdown by type — Bash, Read, Edit, Write, and others — plus how each execution was authorized
+- Prompt length and frequency patterns
+- Active CLI time vs. your active time, broken down by session
+- Raw filterable log stream with session drill-down and full structured payloads
 
 ## Deployment options
 
-The stack can be deployed three different ways. Pick whichever fits your environment — you only need one.
+Three ways to run the stack — pick the one that matches your environment. You only need one.
 
 | Option | What you need | Best for |
 |--------|---------------|----------|
@@ -30,16 +27,21 @@ The stack can be deployed three different ways. Pick whichever fits your environ
 | [Kubernetes (Kustomize)](#kubernetes) | A cluster and `kubectl` v1.14+ | Existing cluster without Helm. Raw manifests that are easy to inspect and edit. |
 | [Helm](#helm) | A cluster and Helm v3 | Existing cluster with Helm. Cleanest to customize and upgrade. |
 
-All three options deploy the same four services and the same Grafana dashboards.
+All three options deploy the same four services and the same Grafana dashboards. Clone the repo once before following the setup for your chosen option:
+
+```bash
+git clone https://github.com/KB1SLN-Labs/claude-code-observability.git
+cd claude-code-observability
+```
 
 ---
 
 ## How it works
 
-Claude Code has built-in support for [OpenTelemetry](https://opentelemetry.io/) (OTEL) — an open standard for exporting telemetry from applications. When OTEL export is enabled, Claude Code sends two streams of data after every API interaction:
+Claude Code has built-in support for [OpenTelemetry](https://opentelemetry.io/) (OTel) — an open standard for exporting telemetry from applications. When OTel export is enabled, Claude Code sends two streams of data after every API interaction:
 
 - **Metrics** — structured numeric data: token counts, cost, cache hits, session duration, code lines changed, tool call counts, and more. These flow through the OTel Collector into Prometheus, where Grafana queries them to build the dashboard panels.
-- **Logs** — structured event records: every tool execution, user prompt, edit acceptance or rejection, and decision authorization. These flow through the OTel Collector into Loki, where Grafana queries them for the log explorer and log-sourced panels (tool usage breakdown, prompt length distribution, etc.).
+- **Logs** — structured event records: every tool execution, user prompt, edit acceptance or rejection, and decision authorization. These flow through the OTel Collector into Loki, where Grafana queries them for the log explorer and log-sourced panels.
 
 The four services and how they connect:
 
@@ -48,11 +50,10 @@ Claude Code
     │
     │  OTLP/HTTP (port 4318)
     ▼
-OTel Collector          ← receives and routes all telemetry
-    ├── metrics ──────► Prometheus  ← stores time-series metrics
-    └── logs ─────────► Loki        ← stores structured log events
-                              │
-                         Grafana    ← queries both, renders dashboards
+OTel Collector
+    ├── metrics ──► Prometheus ──┐
+    │                            ├──► Grafana
+    └── logs ─────► Loki ────────┘
 ```
 
 The OTel Collector is the only service that needs to be reachable from wherever you run Claude Code. Prometheus, Loki, and Grafana communicate with each other internally. Grafana is the only service you need to reach in a browser.
@@ -61,11 +62,13 @@ The OTel Collector is the only service that needs to be reachable from wherever 
 
 ## Configuring Claude Code
 
-This step is the same regardless of which deployment option you choose. The only thing that differs between options is the endpoint URL — each deployment section calls out what to use.
+This configuration is the same regardless of which deployment option you chose. The only thing that differs is the endpoint URL — each deployment section calls out what to use.
 
-### What to add to settings.json
+OTel export is built into Claude Code with no plugins or extensions required. If you're on an older installation, run `claude update` to get the latest version before proceeding.
 
-Claude Code reads environment variables from its `settings.json` file. Add the following two variables:
+### Settings
+
+Claude Code's `settings.json` supports an `env` block that sets environment variables for the process at startup. Add the following two variables, replacing `<your-collector-host>` with the endpoint for your deployment:
 
 ```json
 {
@@ -76,9 +79,9 @@ Claude Code reads environment variables from its `settings.json` file. Add the f
 }
 ```
 
-**`OTEL_EXPORTER_OTLP_ENDPOINT`** — the base URL of the OTel Collector. Claude Code appends `/v1/metrics` and `/v1/logs` to this URL automatically. Use `http://localhost:4318` if the stack is running on the same machine as Claude Code, or `http://<host>:4318` if it's running elsewhere.
+**`OTEL_EXPORTER_OTLP_ENDPOINT`** — the base URL of the OTel Collector. Claude Code appends `/v1/metrics` and `/v1/logs` automatically. Use `http://localhost:4318` if the stack is on the same machine as Claude Code, or `http://<host>:4318` if it's running elsewhere.
 
-**`OTEL_EXPORTER_OTLP_PROTOCOL`** — tells Claude Code to use HTTP with protobuf encoding. This must be set to `http/protobuf`. The gRPC protocol (`grpc`) is also supported by the collector but requires a different port (4317) and is not needed for most setups.
+**`OTEL_EXPORTER_OTLP_PROTOCOL`** — must be `http/protobuf`. The gRPC protocol is also supported by the collector on port 4317 but is not needed for most setups.
 
 ### Where is settings.json?
 
@@ -87,10 +90,11 @@ Claude Code reads environment variables from its `settings.json` file. Add the f
 | macOS / Linux | `~/.claude/settings.json` |
 | Windows | `%USERPROFILE%\.claude\settings.json` |
 
-If the file doesn't exist yet, create it. If it already exists, add the `env` block to it — don't replace the whole file. The full file structure looks like this:
+If the file doesn't exist yet, create it with the `env` block above. If it already exists, add the `env` block alongside your existing settings — don't replace the whole file:
 
 ```json
 {
+  "theme": "dark",
   "env": {
     "OTEL_EXPORTER_OTLP_ENDPOINT": "http://<your-collector-host>:4318",
     "OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf"
@@ -98,36 +102,13 @@ If the file doesn't exist yet, create it. If it already exists, add the `env` bl
 }
 ```
 
-If you have other settings already in the file, add the `env` block alongside them:
-
-```json
-{
-  "someOtherSetting": true,
-  "env": {
-    "OTEL_EXPORTER_OTLP_ENDPOINT": "http://<your-collector-host>:4318",
-    "OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf"
-  }
-}
-```
-
-### Applying the change
-
-After saving `settings.json`, restart Claude Code for the change to take effect. New sessions will begin exporting telemetry immediately. Existing sessions that were open when you saved will need to be closed and reopened.
+After saving, restart Claude Code. New sessions will begin exporting telemetry immediately; any sessions that were open when you saved need to be closed and reopened.
 
 ### Verifying it's working
 
-Open Grafana and go to the main dashboard. Within a few minutes of running Claude Code with the setting in place, you should see:
+Open Grafana and check the main dashboard. Within a few minutes of running Claude Code you should see non-zero values in **Total Cost Today**, **Total Tokens Today**, and **Active Sessions (24h)**. The **Log Stream** on the Logs dashboard should show entries as well.
 
-- **Total Cost Today** and **Total Tokens Today** showing non-zero values
-- **Active Sessions (24h)** incrementing as you open sessions
-- **Log Stream** (on the Logs dashboard) showing entries
-
-If the panels stay empty after several minutes, check:
-
-1. The endpoint URL in `settings.json` matches the host and port the OTel Collector is actually listening on
-2. There are no firewall rules blocking port 4318 between the Claude Code machine and the collector host
-3. Claude Code was fully restarted after the settings change (not just a new terminal tab in an existing session)
-4. The OTel Collector container or pod is running and healthy
+If panels stay empty after several minutes, see [Troubleshooting](#troubleshooting).
 
 ---
 
@@ -135,19 +116,16 @@ If the panels stay empty after several minutes, check:
 
 ### Setup
 
-**1. Clone the repo:**
-
-```bash
-git clone https://github.com/KB1SLN-Labs/claude-code-observability.git
-cd claude-code-observability
-```
-
-**2. (Optional) Adjust ports:**
+**1. (Optional) Adjust ports:**
 
 If any default ports conflict with something already running on your host, copy `.env.example` to `.env` and change the values you need:
 
 ```bash
+# macOS / Linux
 cp .env.example .env
+
+# Windows
+copy .env.example .env
 ```
 
 ```env
@@ -160,15 +138,15 @@ LOKI_PORT=3100
 
 Only set the values you're changing. The defaults apply for anything you leave out.
 
-**3. Start the stack:**
+**2. Start the stack:**
 
 ```bash
 docker compose up -d
 ```
 
-**4. Configure Claude Code to export telemetry:**
+**3. Configure Claude Code:**
 
-See [Configuring Claude Code](#configuring-claude-code) for full details. The endpoint depends on where the stack is running:
+See [Configuring Claude Code](#configuring-claude-code) for full details. The endpoint depends on where the stack is running.
 
 **Same machine as Claude Code:**
 
@@ -192,9 +170,9 @@ See [Configuring Claude Code](#configuring-claude-code) for full details. The en
 }
 ```
 
-**5. Open Grafana:**
+**4. Open Grafana:**
 
-Navigate to `http://<stack-host>:3000` (or `http://localhost:3000` if running locally). Dashboards load automatically — no login required.
+Navigate to `http://localhost:3000` (or `http://<stack-host>:3000` if running remotely). Dashboards load automatically — no login required.
 
 ### Data retention
 
@@ -202,17 +180,7 @@ Prometheus retains 30 days of metrics by default. Loki retains logs until disk p
 
 ### Ports
 
-All ports are configurable via `.env`. These are the defaults:
-
-| Variable | Default | Service |
-|----------|---------|---------|
-| `GRAFANA_PORT` | 3000 | Grafana |
-| `OTLP_GRPC_PORT` | 4317 | OTLP gRPC (collector) |
-| `OTLP_HTTP_PORT` | 4318 | OTLP HTTP (collector) |
-| `PROMETHEUS_PORT` | 9090 | Prometheus |
-| `LOKI_PORT` | 3100 | Loki |
-
-Only Grafana (for the UI) and the OTLP HTTP port (for Claude Code) need to be reachable from wherever you run Claude. Prometheus and Loki are internal to the stack and their ports only matter if you want to query them directly.
+All ports are configurable via `.env` (see step 1 above for defaults). Only two ports need to be reachable from outside the Docker host: Grafana (for the browser UI) and the OTLP HTTP port (for Claude Code). Prometheus and Loki communicate internally and only matter if you want to query them directly.
 
 ### Stopping
 
@@ -232,34 +200,27 @@ docker compose down -v
 
 Manifests are in the `k8s/` directory and use [Kustomize](https://kustomize.io/), which is built into `kubectl` since v1.14 — no separate install needed.
 
-Grafana and the OTel Collector are exposed via `LoadBalancer` services by default. If your cluster doesn't have a load balancer provisioner (bare metal, local clusters, etc.), change `type: LoadBalancer` to `type: NodePort` in `k8s/otel-collector.yaml` and `k8s/grafana.yaml`. The assigned node ports will be shown by `kubectl get svc -n claude-code-observability`.
-
 ### Setup
 
-**1. Clone the repo:**
-
-```bash
-git clone https://github.com/KB1SLN-Labs/claude-code-observability.git
-cd claude-code-observability
-```
-
-**2. Deploy to your cluster:**
+**1. Deploy to your cluster:**
 
 ```bash
 kubectl apply -k k8s/
 ```
 
-This creates the `claude-code-observability` namespace and deploys all four services. PersistentVolumeClaims are created using your cluster's default StorageClass.
+This creates the `claude-code-observability` namespace and deploys all four services. PersistentVolumeClaims are created using your cluster's default StorageClass. If your cluster doesn't have a default StorageClass configured (common on bare metal), you'll need to add a `storageClassName` to the PVC specs in `k8s/prometheus.yaml` and `k8s/loki.yaml` before deploying, or use the [Helm chart](#helm) where this is a simple values option.
 
-**3. Wait for external IPs to be assigned:**
+Grafana and the OTel Collector use `LoadBalancer` services by default. If your cluster doesn't have a load balancer provisioner (bare metal, local clusters, etc.), change `type: LoadBalancer` to `type: NodePort` in `k8s/otel-collector.yaml` and `k8s/grafana.yaml` before running `kubectl apply`.
+
+**2. Wait for external IPs to be assigned:**
 
 ```bash
 kubectl get svc -n claude-code-observability --watch
 ```
 
-Wait until both `otel-collector` and `grafana` show an `EXTERNAL-IP` (or a node port if you switched to NodePort).
+Wait until both `otel-collector` and `grafana` show an `EXTERNAL-IP`. If you switched to NodePort, the assigned ports will appear under `PORT(S)`.
 
-**4. Configure Claude Code to export telemetry:**
+**3. Configure Claude Code:**
 
 See [Configuring Claude Code](#configuring-claude-code) for full details. Point Claude Code at the OTel Collector's external IP:
 
@@ -272,7 +233,7 @@ See [Configuring Claude Code](#configuring-claude-code) for full details. Point 
 }
 ```
 
-**5. Open Grafana:**
+**4. Open Grafana:**
 
 Navigate to `http://<grafana-external-ip>:3000`. Dashboards load automatically — no login required.
 
@@ -297,20 +258,11 @@ kubectl delete pvc -n claude-code-observability --all
 
 ## Helm
 
-The Helm chart is in the `helm/` directory. It supports the same four-service stack as the Kubernetes manifests but is easier to customize — all tunables (image versions, service types, PVC sizes, retention, resource limits) are in `values.yaml`.
-
-Grafana and the OTel Collector are exposed via `LoadBalancer` services by default. If your cluster doesn't have a load balancer provisioner, set `otelCollector.service.type` and `grafana.service.type` to `NodePort` in your values override.
+The Helm chart is in the `helm/` directory. It deploys the same four-service stack as the Kubernetes manifests but all tunables — image versions, service types, PVC sizes, retention, resource limits — are in `values.yaml` rather than requiring direct manifest edits.
 
 ### Setup
 
-**1. Clone the repo:**
-
-```bash
-git clone https://github.com/KB1SLN-Labs/claude-code-observability.git
-cd claude-code-observability
-```
-
-**2. Install the chart:**
+**1. Install the chart:**
 
 ```bash
 helm install claude-code ./helm --namespace claude-code-observability --create-namespace
@@ -327,15 +279,15 @@ helm install claude-code ./helm \
   --set grafana.service.type=NodePort
 ```
 
-**3. Wait for external IPs to be assigned:**
+**2. Wait for external IPs to be assigned:**
 
 ```bash
 kubectl get svc -n claude-code-observability --watch
 ```
 
-Wait until `claude-code-otel-collector` and `claude-code-grafana` show an `EXTERNAL-IP` (or node port if you switched to NodePort).
+Wait until `claude-code-otel-collector` and `claude-code-grafana` show an `EXTERNAL-IP`. If you switched to NodePort, the assigned ports will appear under `PORT(S)`.
 
-**4. Configure Claude Code to export telemetry:**
+**3. Configure Claude Code:**
 
 See [Configuring Claude Code](#configuring-claude-code) for full details. Point Claude Code at the OTel Collector's external IP:
 
@@ -348,7 +300,7 @@ See [Configuring Claude Code](#configuring-claude-code) for full details. Point 
 }
 ```
 
-**5. Open Grafana:**
+**4. Open Grafana:**
 
 Navigate to `http://<grafana-external-ip>:3000`. Dashboards load automatically — no login required.
 
@@ -361,16 +313,20 @@ All values are in `helm/values.yaml`. The most commonly changed ones:
 | `prometheus.retention` | `30d` | How long Prometheus keeps metrics |
 | `prometheus.persistence.size` | `10Gi` | Prometheus PVC size |
 | `loki.persistence.size` | `10Gi` | Loki PVC size |
+| `prometheus.persistence.storageClass` | `""` | StorageClass for Prometheus PVC (cluster default if empty) |
+| `loki.persistence.storageClass` | `""` | StorageClass for Loki PVC (cluster default if empty) |
 | `otelCollector.service.type` | `LoadBalancer` | `LoadBalancer` or `NodePort` |
 | `grafana.service.type` | `LoadBalancer` | `LoadBalancer` or `NodePort` |
-| `otelCollector.service.annotations` | `{}` | Cloud load balancer annotations (e.g. AWS NLB) |
-| `grafana.service.annotations` | `{}` | Cloud load balancer annotations |
+| `otelCollector.service.annotations` | `{}` | Annotations passed to the load balancer service — use this to select a specific load balancer class or configure cloud-specific behavior (e.g. AWS NLB, GCP internal) |
+| `grafana.service.annotations` | `{}` | Same, for the Grafana service |
 
 ### Upgrading
 
 ```bash
 helm upgrade claude-code ./helm --namespace claude-code-observability
 ```
+
+Upgrades do not affect existing PersistentVolumeClaims or stored data.
 
 ### Tearing down
 
@@ -384,6 +340,29 @@ This removes all workloads and services but leaves the PersistentVolumeClaims in
 helm uninstall claude-code --namespace claude-code-observability
 kubectl delete pvc -n claude-code-observability --all
 ```
+
+---
+
+## Troubleshooting
+
+**Panels show no data after setup**
+
+1. Confirm the `OTEL_EXPORTER_OTLP_ENDPOINT` in `settings.json` matches the host and port the OTel Collector is actually listening on.
+2. Check that port 4318 is reachable from the Claude Code machine to the collector host — firewalls are a common cause.
+3. Make sure Claude Code was fully restarted after saving `settings.json`, not just opened in a new terminal tab within an existing session.
+4. Confirm the OTel Collector container or pod is running and healthy (`docker compose ps` or `kubectl get pods -n claude-code-observability`).
+
+**Metrics appear but log-sourced panels are empty**
+
+Log-sourced panels include Tool Usage Breakdown, Tool Decision Sources, Prompts Per Hour, and Prompt Length Distribution. If these show no data while cost and token panels are working, the log pipeline specifically isn't reaching Loki. Check:
+
+1. The Loki container or pod is running and healthy.
+2. The OTel Collector logs don't show errors exporting to Loki (`docker compose logs otel-collector` or `kubectl logs -n claude-code-observability deployment/loki`).
+3. The Logs dashboard shows entries in the Log Stream panel — if it does, the data is in Loki and the issue is likely a query or time range mismatch on the affected panels.
+
+**Grafana shows "No data" on a specific panel**
+
+Expand the time range. Some panels (especially 7-day averages and anomaly detection) need at least a few days of data to produce meaningful output. The dashboard defaults to the last 24 hours — if the stack was just installed, the historical panels won't have enough data yet.
 
 ---
 
@@ -401,99 +380,124 @@ The default time range is the last 24 hours. The dashboard refreshes every 5 min
 
 Five stat panels across the top row.
 
-**Real-Time Cost Burn Rate**
+#### Real-Time Cost Burn Rate
+
 Current spend rate in dollars per hour, calculated from a 30-minute trailing window. The window is intentionally wide — Claude Code emits metrics per API turn rather than continuously, so a shorter window zeros out between turns. Background turns green below $0.50/hr, yellow up to $2.00/hr, red above.
 
-**Total Cost Today**
+#### Total Cost Today
+
 Total API spend in the last 24 hours alongside the 7-day rolling daily average. The percentage change compares today's 24-hour window to yesterday's. If today is well above your 7-day average and trending up, check whether a session is accumulating more context than usual.
 
-**Subagent Cost (24h)**
+#### Subagent Cost (24h)
+
 Cost attributed to spawned subagent tasks — parallel research, background code review, multi-agent work. Compare against Main Session Cost to understand what fraction of your spend is autonomous parallel work versus direct conversation. Includes the 7-day average and today-vs-yesterday change.
 
-**Main Session Cost (24h)**
+#### Main Session Cost (24h)
+
 Cost from primary conversation turns: your prompts and Claude's direct responses. Excludes subagent and auxiliary tasks. Includes the 7-day average and percentage change.
 
-**Code Edit Acceptance Rate %**
+#### Code Edit Acceptance Rate %
+
 Percentage of Claude's proposed file edits that were accepted in the last 24 hours, plus the 7-day average. Below 80% is worth investigating — the most common causes are context drift mid-session, an ambiguous task description, or Claude losing track of the codebase structure. Background turns red below 60%, yellow up to 80%, green above. Shows "No edits" if no edit activity occurred in the window.
 
 ---
 
 #### Projections and Per-Session Metrics
 
-**Cost Forecast**
-Daily and monthly cost projections extrapolated from the current 6-hour burn rate. Useful for catching a runaway session before the bill arrives. Because it uses a 6-hour window, the number smooths out short spikes and reflects sustained activity.
+#### Cost Forecast
 
-**Average Cost / Session**
+Daily and monthly cost projections extrapolated from the current 6-hour burn rate. The 6-hour window smooths out short spikes — what you see reflects sustained activity, making it a reliable early signal of a runaway session.
+
+#### Average Cost / Session
+
 Average API spend per session over the last 24 hours compared to the 7-day average. A rising number over multiple days usually means sessions are running longer without being compacted — context accumulates and each turn costs more to process.
 
-**Cost per 1K Tokens**
+#### Cost per 1K Tokens
+
 Effective cost per 1,000 tokens across all token types. Cache reads cost roughly 10% of input price, so a well-cached workflow will push this number well below the model's headline rate. Includes the 7-day average and percentage change. Rising cost-per-token despite stable usage typically means cache efficiency has dropped.
 
-**Active Time (24h)**
+#### Active Time (24h)
+
 Two values side by side: CLI time (how long Claude Code was running and processing) and User time (how long you were actively engaged — typing, reviewing). A high CLI-to-user ratio means Claude is doing a lot of autonomous work between your interactions.
 
-**Token Distribution by Model (24h)**
+#### Token Distribution by Model (24h)
+
 Pie chart showing the share of total tokens consumed by each model. Sonnet dominating is expected for most workloads. A large Opus slice is worth checking — Opus costs roughly 5x Sonnet per token, and many tasks don't require it.
 
 ---
 
 #### Session Volume
 
-**Active Sessions (24h)**
+#### Active Sessions (24h)
+
 Number of Claude Code sessions started in the last 24 hours, alongside the 7-day daily average and today-vs-yesterday change.
 
-**Average Session Metrics**
+#### Average Session Metrics
+
 Three horizontal bars showing per-session averages across the last 24 hours: cost ($), total token count, and active CLI time. Rising values across multiple days point to sessions accumulating context without being reset. A useful complement to Average Cost / Session — if cost is rising but token count is flat, a more expensive model is being used more often.
 
-**Lines of Code Modified**
-Lines added and deleted today alongside 7-day rolling daily averages for each. A large gap between Today and 7 Day Avg indicates an unusually active or unusually quiet day.
+#### Lines of Code Modified
+
+Lines added and deleted today alongside 7-day rolling daily averages for each. A large gap between today and the 7-day average indicates an unusually active or unusually quiet day.
 
 ---
 
 #### Cache and Token Health
 
-**Cache Hit Rate %**
-Percentage of input-side tokens served from Anthropic's prompt cache. Above 80% is healthy. Below 60% is a signal to investigate — sessions may be too short to warm the cache effectively, or context structure is preventing cache blocks from being reused. Gauge arc turns red below 60%, yellow up to 80%, green above.
+#### Cache Hit Rate %
 
-**Total Tokens Today**
+Percentage of input-side tokens served from Anthropic's prompt cache. Above 80% is healthy. Below 60% suggests sessions may be too short to warm the cache effectively, or context structure is preventing cache blocks from being reused. Gauge arc turns red below 60%, yellow up to 80%, green above.
+
+#### Total Tokens Today
+
 All tokens consumed in the last 24 hours across all types, alongside the 7-day daily average.
 
-**Model Token Efficiency (tokens/$)**
+#### Model Token Efficiency (tokens/$)
+
 Total tokens per dollar spent, broken down by model, over the selected time range. Higher is more efficient. Haiku should significantly outperform Opus given the price difference. If the gap is narrower than expected, check whether model selection is being overridden somewhere.
 
-**Tool Usage Breakdown**
-Donut chart of tool calls by type over the selected time range, sourced from structured logs. Covers all tools: Bash, Read, Edit, Write, Glob, Grep, and others. Heavy Bash usage looks like a lot of shell-and-test work; heavy Edit/Write usage is more code generation. Useful for understanding what kind of work Claude is actually doing.
+#### Tool Usage Breakdown
+
+Donut chart of tool calls by type over the selected time range, sourced from structured logs. Covers all tools: Bash, Read, Edit, Write, Glob, Grep, and others. Heavy Bash usage points to shell-and-test work; heavy Edit/Write usage is more code generation.
 
 ---
 
 #### Trends and History
 
-**Peak Cost Hours**
-API spend per hour displayed as a bar chart. Spikes show which hours were most expensive. Useful for correlating high-cost periods with specific tasks or sessions you remember running.
+#### Peak Cost Hours
 
-**Weekly Total Token Usage**
-Total tokens consumed over the last 7 days with a sparkline showing the daily trend. A consistently rising slope means usage is accelerating week over week.
+API spend per hour as a bar chart. Spikes show which hours were most expensive — cross-reference with sessions you remember running during those periods.
 
-**Cost Anomaly Detection**
-Hourly spend expressed as percentage deviation from the 7-day historical average for the same hour. A value of 0% means today's spend exactly matches the historical average; 200% means it's three times higher. Excursions above 200% are flagged in red as anomalies — investigate what was running during those periods.
+#### Weekly Total Token Usage
 
-**Prompts Per Hour**
-Count of user prompt events over a rolling 1-hour window, sourced from structured logs. Peaks show concentrated interaction periods; flat sections are idle time. If this number looks too low, check that structured log export is reaching Loki.
+Total tokens consumed over the last 7 days with a sparkline showing the daily trend. A consistently rising slope means usage is accelerating.
 
-**Tool Decision Sources (24h)**
+#### Cost Anomaly Detection
+
+Hourly spend expressed as percentage deviation from the 7-day historical average for the same hour. A value of 0% means today's spend exactly matches the historical average; 200% means it's three times higher. Excursions above 200% are flagged in red — investigate what was running during those periods.
+
+#### Prompts Per Hour
+
+Count of user prompt events over a rolling 1-hour window, sourced from structured logs. Peaks show concentrated interaction periods; flat sections are idle time.
+
+#### Tool Decision Sources (24h)
+
 Donut chart showing how tool executions were authorized: via CLAUDE.md or settings (`config`), approved once for the session (`user temporary`), or added to the permanent allow list (`user permanent`). A high `user temporary` fraction means you're approving many tools interactively that could be moved to config.
 
 ---
 
 #### Rates and Distributions
 
-**Code Modification Velocity (lines/min)**
+#### Code Modification Velocity (lines/min)
+
 Lines added and removed per minute as a timeseries. Green is additions, red is removals. Spikes indicate concentrated editing bursts. A sustained high removal rate relative to additions typically means refactoring or large-scale cleanup.
 
-**Token Usage Rate (24h)**
-Total tokens consumed per minute. The legend table shows mean, last, and peak rates for the selected window. Use this to gauge proximity to your plan's TPM rate limit. If the rate approaches your ceiling, starting a fresh session or running `/compact` is the appropriate response.
+#### Token Usage Rate (24h)
 
-**Prompt Length Distribution (chars)**
+Total tokens consumed per minute. The legend table shows mean, last, and peak rates for the selected window. Use this to gauge proximity to your plan's TPM rate limit — if the rate is approaching your ceiling, starting a fresh session or running `/compact` is the right move.
+
+#### Prompt Length Distribution (chars)
+
 Character count distribution across five buckets: under 100, 100–499, 500–999, 1k–4.9k, and 5k+, sourced from structured logs. Most prompts are short. Long prompts (1k+) usually indicate pasted code, error output, or a detailed task description. A spike in the 5k+ bucket during a session that went expensive is often the explanation.
 
 ---
@@ -502,11 +506,14 @@ Character count distribution across five buckets: under 100, 100–499, 500–99
 
 A dedicated log explorer linked from the main dashboard. Filter by severity level and optionally paste a session ID to scope to a single session.
 
-**Errors / Warnings / Total Entries / Active Sessions**
-Stat tiles showing counts for the selected time range. Use these to quickly gauge whether a period had unusual error rates before opening the full log stream.
+#### Errors / Warnings / Total Entries / Active Sessions
 
-**Log Volume Over Time**
+Stat tiles showing counts for the selected time range. Scan these first to gauge whether a period had unusual error rates before opening the full log stream.
+
+#### Log Volume Over Time
+
 Error, warning, and total log entry counts per minute as a timeseries. Error and warning spikes here are the signal to scroll down and investigate.
 
-**Log Stream**
+#### Log Stream
+
 Full filterable log stream. Set the Level variable to narrow by severity. Paste a session ID in the Session ID field to isolate a single session. Click any row to expand the full structured payload.
