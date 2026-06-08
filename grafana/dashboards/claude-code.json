@@ -845,9 +845,9 @@
       "id": 17,
       "type": "piechart",
       "title": "Tool Usage Breakdown",
-      "description": "Distribution of file edit operations by tool type over the selected time range. Edit modifies existing files in-place; Write creates or fully overwrites; NotebookEdit targets Jupyter cells.",
+      "description": "Share of tool calls by tool type over the selected time range, sourced from structured logs. Covers all tools — Bash, Read, Edit, Write, and others — not just file edits.",
       "gridPos": { "x": 16, "y": 12, "w": 8, "h": 10 },
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "datasource": { "type": "loki", "uid": "${loki_datasource}" },
       "options": {
         "pieType": "donut",
         "displayLabels": ["percent", "name"],
@@ -869,8 +869,8 @@
       },
       "targets": [
         {
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "sum by (tool_name) (increase(claude_code_code_edit_tool_decision_total[$__range]))",
+          "datasource": { "type": "loki", "uid": "${loki_datasource}" },
+          "expr": "sum by (tool_name) (count_over_time({job=\"claude-code\"} | json event_name=\"attributes.event.name\", tool_name=\"attributes.tool_name\" | event_name=\"tool_decision\" [$__range]))",
           "legendFormat": "{{tool_name}}",
           "instant": true,
           "refId": "A"
@@ -1074,9 +1074,9 @@
       "id": 22,
       "type": "piechart",
       "title": "Tool Decision Sources (24h)",
-      "description": "How tool execution decisions were authorized over the last 24 hours. Config = approved in CLAUDE.md or settings. User temporary = approved once for the session. User permanent = added to always-allow list.",
+      "description": "How tool execution decisions were authorized over the last 24 hours. Config = approved via CLAUDE.md or settings. User temporary = approved once for the session. User permanent = added to always-allow list.",
       "gridPos": { "x": 16, "y": 22, "w": 8, "h": 5 },
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "datasource": { "type": "loki", "uid": "${loki_datasource}" },
       "options": {
         "pieType": "donut",
         "displayLabels": ["percent", "name"],
@@ -1098,8 +1098,8 @@
       },
       "targets": [
         {
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "sum by (source) (increase(claude_code_code_edit_tool_decision_total[24h]))",
+          "datasource": { "type": "loki", "uid": "${loki_datasource}" },
+          "expr": "sum by (source) (count_over_time({job=\"claude-code\"} | json event_name=\"attributes.event.name\", source=\"attributes.source\" | event_name=\"tool_decision\" [$__range]))",
           "legendFormat": "{{source}}",
           "instant": true,
           "refId": "A"
@@ -1210,56 +1210,68 @@
 
     {
       "id": 25,
-      "type": "barchart",
-      "title": "Token Volume by Type (24h)",
-      "description": "Total token counts for each type over the last 24 hours. cacheRead should dwarf input in a well-cached workflow — that gap represents your cache efficiency. cacheCreation is the one-time cost to prime the cache.",
+      "type": "bargauge",
+      "title": "Prompt Length Distribution (chars)",
+      "description": "Distribution of prompt lengths by character count bucket over the selected time range, sourced from structured logs. Most prompts are short — long prompts (1k+ chars) typically mean pasted code or detailed task descriptions.",
       "gridPos": { "x": 16, "y": 27, "w": 8, "h": 5 },
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "datasource": { "type": "loki", "uid": "${loki_datasource}" },
       "options": {
+        "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
         "orientation": "horizontal",
-        "xTickLabelRotation": 0,
-        "fillOpacity": 80,
-        "gradientMode": "none",
-        "tooltip": { "mode": "single", "sort": "none" },
-        "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] },
-        "barWidth": 0.7,
-        "groupWidth": 0.7
+        "displayMode": "gradient",
+        "valueMode": "color",
+        "showUnfilled": true,
+        "minVizWidth": 0,
+        "minVizHeight": 10
       },
       "fieldConfig": {
         "defaults": {
           "unit": "short",
           "decimals": 0,
-          "color": { "mode": "palette-classic" },
-          "custom": {
-            "fillOpacity": 80,
-            "gradientMode": "none",
-            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
-            "lineWidth": 1,
-            "axisPlacement": "auto"
-          },
+          "color": { "mode": "continuous-BlPu" },
           "thresholds": {
             "mode": "absolute",
             "steps": [{ "color": "text", "value": null }]
-          }
+          },
+          "mappings": []
         },
         "overrides": []
       },
-      "transformations": [
-        {
-          "id": "organize",
-          "options": {
-            "excludeByName": { "Time": true, "__name__": true, "instance": true, "job": true, "model": true, "session_id": true }
-          }
-        }
-      ],
       "targets": [
         {
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "sum by (type) (increase(claude_code_token_usage_tokens_total[24h]))",
-          "legendFormat": "{{type}}",
+          "datasource": { "type": "loki", "uid": "${loki_datasource}" },
+          "expr": "sum(count_over_time({job=\"claude-code\"} | json event_name=\"attributes.event.name\", prompt_length=\"attributes.prompt_length\" | event_name=\"user_prompt\" | prompt_length =~ \"[0-9]{1,2}\" [$__range]))",
+          "legendFormat": "< 100",
           "instant": true,
-          "format": "table",
           "refId": "A"
+        },
+        {
+          "datasource": { "type": "loki", "uid": "${loki_datasource}" },
+          "expr": "sum(count_over_time({job=\"claude-code\"} | json event_name=\"attributes.event.name\", prompt_length=\"attributes.prompt_length\" | event_name=\"user_prompt\" | prompt_length =~ \"[1-4][0-9]{2}\" [$__range]))",
+          "legendFormat": "100 – 499",
+          "instant": true,
+          "refId": "B"
+        },
+        {
+          "datasource": { "type": "loki", "uid": "${loki_datasource}" },
+          "expr": "sum(count_over_time({job=\"claude-code\"} | json event_name=\"attributes.event.name\", prompt_length=\"attributes.prompt_length\" | event_name=\"user_prompt\" | prompt_length =~ \"[5-9][0-9]{2}\" [$__range]))",
+          "legendFormat": "500 – 999",
+          "instant": true,
+          "refId": "C"
+        },
+        {
+          "datasource": { "type": "loki", "uid": "${loki_datasource}" },
+          "expr": "sum(count_over_time({job=\"claude-code\"} | json event_name=\"attributes.event.name\", prompt_length=\"attributes.prompt_length\" | event_name=\"user_prompt\" | prompt_length =~ \"[1-4][0-9]{3}\" [$__range]))",
+          "legendFormat": "1k – 4.9k",
+          "instant": true,
+          "refId": "D"
+        },
+        {
+          "datasource": { "type": "loki", "uid": "${loki_datasource}" },
+          "expr": "sum(count_over_time({job=\"claude-code\"} | json event_name=\"attributes.event.name\", prompt_length=\"attributes.prompt_length\" | event_name=\"user_prompt\" | prompt_length =~ \"[5-9][0-9]{3,}\" [$__range]))",
+          "legendFormat": "5k+",
+          "instant": true,
+          "refId": "E"
         }
       ]
     }
