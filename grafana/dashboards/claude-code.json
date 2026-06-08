@@ -3,7 +3,7 @@
   "description": "Claude Code usage — cost, tokens, and activity",
   "editable": true,
   "fiscalYearStartMonth": 0,
-  "graphTooltip": 0,
+  "graphTooltip": 1,
   "id": null,
   "links": [],
   "refresh": "5m",
@@ -506,7 +506,7 @@
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "options": {
         "pieType": "donut",
-        "tooltip": { "mode": "single", "sort": "none" },
+        "tooltip": { "mode": "none", "sort": "none" },
         "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] },
         "displayLabels": ["percent"]
       },
