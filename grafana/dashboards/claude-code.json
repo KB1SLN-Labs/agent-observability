@@ -328,7 +328,7 @@
             "gradientMode": "none",
             "spanNulls": false,
             "showPoints": "never",
-            "stacking": { "mode": "normal", "group": "A" },
+            "stacking": { "mode": "none", "group": "A" },
             "axisPlacement": "auto",
             "scaleDistribution": { "type": "linear" },
             "hideFrom": { "legend": false, "tooltip": false, "viz": false }
