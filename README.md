@@ -34,6 +34,8 @@ git clone https://github.com/KB1SLN-Labs/claude-code-observability.git
 cd claude-code-observability
 ```
 
+**All commands in the setup sections below must be run from inside the `claude-code-observability` directory.** If you open a new terminal or log into a different machine to run the deployment steps, `cd` back into the repo first.
+
 ---
 
 ## How it works
@@ -113,6 +115,8 @@ If panels stay empty after several minutes, see [Troubleshooting](#troubleshooti
 ---
 
 ## Docker Compose
+
+> Run all commands from the root of the cloned repo (`claude-code-observability/`).
 
 ### Setup
 
@@ -198,6 +202,8 @@ docker compose down -v
 
 ## Kubernetes
 
+> Run all commands from the root of the cloned repo (`claude-code-observability/`).
+
 Manifests are in the `k8s/` directory and use [Kustomize](https://kustomize.io/), which is built into `kubectl` since v1.14 — no separate install needed.
 
 ### Setup
@@ -257,6 +263,8 @@ kubectl delete pvc -n claude-code-observability --all
 ---
 
 ## Helm
+
+> Run all commands from the root of the cloned repo (`claude-code-observability/`).
 
 The Helm chart is in the `helm/` directory. It deploys the same four-service stack as the Kubernetes manifests but all tunables — image versions, service types, PVC sizes, retention, resource limits — are in `values.yaml` rather than requiring direct manifest edits.
 
