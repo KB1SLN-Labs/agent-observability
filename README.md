@@ -27,17 +27,42 @@ A self-hosted monitoring stack for [Claude Code](https://claude.ai/code). Claude
 
 ## Setup
 
-**1. Clone and start the stack:**
+**1. Clone the repo:**
 
 ```bash
 git clone https://github.com/KB1SLN-Labs/claude-code-observability.git
 cd claude-code-observability
+```
+
+**2. (Optional) Adjust ports:**
+
+If any default ports conflict with something already running on your host, copy `.env.example` to `.env` and change the values you need:
+
+```bash
+cp .env.example .env
+```
+
+```env
+GRAFANA_PORT=3000
+OTLP_GRPC_PORT=4317
+OTLP_HTTP_PORT=4318
+PROMETHEUS_PORT=9090   # commonly conflicts — change this if needed
+LOKI_PORT=3100
+```
+
+Only set the values you're changing. The defaults apply for anything you leave out.
+
+**3. Start the stack:**
+
+```bash
 docker compose up -d
 ```
 
-**2. Configure Claude Code to export telemetry:**
+**4. Configure Claude Code to export telemetry:**
 
-Add the following to your Claude Code `settings.json` (usually at `~/.claude/settings.json`):
+How you configure the endpoint depends on where the stack is running.
+
+**Same machine as Claude Code** — use `localhost` and the OTLP HTTP port (default 4318):
 
 ```json
 {
@@ -48,11 +73,22 @@ Add the following to your Claude Code `settings.json` (usually at `~/.claude/set
 }
 ```
 
-Restart Claude Code after saving.
+**Stack running on a remote host** — replace `<stack-host>` with the IP address or hostname of the machine running Docker, and use whatever port you set for `OTLP_HTTP_PORT`:
 
-**3. Open Grafana:**
+```json
+{
+  "env": {
+    "OTEL_EXPORTER_OTLP_ENDPOINT": "http://<stack-host>:4318",
+    "OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf"
+  }
+}
+```
 
-Navigate to [http://localhost:3000](http://localhost:3000). Dashboards load automatically — no login required.
+Add this to your Claude Code `settings.json` (usually at `~/.claude/settings.json`) and restart Claude Code.
+
+**5. Open Grafana:**
+
+Navigate to `http://<stack-host>:3000` (or `http://localhost:3000` if running locally). Dashboards load automatically — no login required.
 
 ## Data retention
 
@@ -60,13 +96,17 @@ Prometheus retains 30 days of metrics by default. Loki retains logs until disk p
 
 ## Ports
 
-| Port | Service |
-|------|---------|
-| 3000 | Grafana |
-| 4317 | OTLP gRPC (collector) |
-| 4318 | OTLP HTTP (collector) |
-| 9090 | Prometheus |
-| 3100 | Loki |
+All ports are configurable via `.env`. These are the defaults:
+
+| Variable | Default | Service |
+|----------|---------|---------|
+| `GRAFANA_PORT` | 3000 | Grafana |
+| `OTLP_GRPC_PORT` | 4317 | OTLP gRPC (collector) |
+| `OTLP_HTTP_PORT` | 4318 | OTLP HTTP (collector) |
+| `PROMETHEUS_PORT` | 9090 | Prometheus |
+| `LOKI_PORT` | 3100 | Loki |
+
+Only Grafana (for the UI) and the OTLP HTTP port (for Claude Code) need to be reachable from wherever you run Claude. Prometheus and Loki are internal to the stack and their ports only matter if you want to query them directly.
 
 ## Stopping
 

@@ -5,8 +5,8 @@ services:
     volumes:
       - ./otel-collector/config.yaml:/etc/otel/config.yaml:ro
     ports:
-      - "4317:4317"   # OTLP gRPC
-      - "4318:4318"   # OTLP HTTP
+      - "${OTLP_GRPC_PORT:-4317}:4317"
+      - "${OTLP_HTTP_PORT:-4318}:4318"
     depends_on:
       - prometheus
       - loki
@@ -22,7 +22,7 @@ services:
     volumes:
       - prometheus-data:/prometheus
     ports:
-      - "9090:9090"
+      - "${PROMETHEUS_PORT:-9090}:9090"
     restart: unless-stopped
 
   loki:
@@ -31,7 +31,7 @@ services:
     volumes:
       - loki-data:/loki
     ports:
-      - "3100:3100"
+      - "${LOKI_PORT:-3100}:3100"
     restart: unless-stopped
 
   grafana:
@@ -46,7 +46,7 @@ services:
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
       - grafana-data:/var/lib/grafana
     ports:
-      - "3000:3000"
+      - "${GRAFANA_PORT:-3000}:3000"
     depends_on:
       - prometheus
       - loki
