@@ -74,11 +74,52 @@
       "gridPos": { "x": 0, "y": 4, "w": 24, "h": 1 }
     },
     {
+      "id": 45,
+      "type": "stat",
+      "title": "Cost Burn Rate ($/hr)",
+      "description": "Real-time cost in dollars per hour based on the last 5 minutes of activity. A spike here means Opus is running or a large context window is in play.",
+      "gridPos": { "x": 0, "y": 5, "w": 3, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "options": {
+        "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 3,
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.5 },
+              { "color": "red", "value": 2.0 }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "rate(claude_code_cost_usage_USD_total[5m]) * 3600",
+          "legendFormat": "$/hr",
+          "refId": "A"
+        }
+      ]
+    },
+    {
       "id": 3,
       "type": "stat",
-      "title": "Total Cost",
-      "description": "Cumulative API spend across all sessions and models.",
-      "gridPos": { "x": 0, "y": 5, "w": 4, "h": 4 },
+      "title": "Cost Today",
+      "description": "Total API spend in the last 24 hours across all sessions and models.",
+      "gridPos": { "x": 3, "y": 5, "w": 3, "h": 4 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "options": {
         "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
@@ -108,8 +149,46 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "sum(claude_code_cost_usage_USD_total)",
-          "legendFormat": "Total",
+          "expr": "sum(increase(claude_code_cost_usage_USD_total[24h]))",
+          "legendFormat": "Cost Today",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 46,
+      "type": "stat",
+      "title": "7-Day Avg Cost",
+      "description": "Rolling average of daily cost over the past 7 days. Compare against Cost Today to see if today is above or below your recent baseline.",
+      "gridPos": { "x": 6, "y": 5, "w": 3, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "options": {
+        "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 2,
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "text", "value": null }]
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "avg_over_time((sum(increase(claude_code_cost_usage_USD_total[24h])))[7d:24h])",
+          "instant": true,
+          "legendFormat": "7d Avg",
           "refId": "A"
         }
       ]
@@ -119,7 +198,7 @@
       "type": "stat",
       "title": "Cost per Session",
       "description": "Average API spend per Claude Code session. Rising cost per session usually means context is snowballing — try /compact to reset.",
-      "gridPos": { "x": 4, "y": 5, "w": 4, "h": 4 },
+      "gridPos": { "x": 9, "y": 5, "w": 3, "h": 4 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "options": {
         "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
@@ -149,7 +228,7 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "sum(claude_code_cost_usage_USD_total) / sum(claude_code_session_count_total)",
+          "expr": "sum(increase(claude_code_cost_usage_USD_total[24h])) / clamp_min(sum(increase(claude_code_session_count_total[24h])), 1)",
           "legendFormat": "Cost/Session",
           "refId": "A"
         }
@@ -160,7 +239,7 @@
       "type": "stat",
       "title": "Cache Hit Rate",
       "description": "Share of input-side tokens served from cache. Above 80% means you're spending efficiently. Below 60% suggests the context window is growing faster than cache is being reused.",
-      "gridPos": { "x": 8, "y": 5, "w": 4, "h": 4 },
+      "gridPos": { "x": 12, "y": 5, "w": 3, "h": 4 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "options": {
         "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
@@ -192,7 +271,7 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "sum(claude_code_token_usage_tokens_total{type=\"cacheRead\"}) / sum(claude_code_token_usage_tokens_total{type=~\"input|cacheRead|cacheCreation\"})",
+          "expr": "sum(increase(claude_code_token_usage_tokens_total{type=\"cacheRead\"}[24h])) / clamp_min(sum(increase(claude_code_token_usage_tokens_total{type=~\"input|cacheRead|cacheCreation\"}[24h])), 1)",
           "legendFormat": "Cache Hit Rate",
           "refId": "A"
         }
@@ -201,9 +280,9 @@
     {
       "id": 6,
       "type": "stat",
-      "title": "Total Tokens",
-      "description": "All tokens consumed across all types: input, output, cacheRead, and cacheCreation.",
-      "gridPos": { "x": 12, "y": 5, "w": 4, "h": 4 },
+      "title": "Tokens Today",
+      "description": "All tokens consumed in the last 24 hours across all types: input, output, cacheRead, and cacheCreation.",
+      "gridPos": { "x": 15, "y": 5, "w": 3, "h": 4 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "options": {
         "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
@@ -229,8 +308,8 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "sum(claude_code_token_usage_tokens_total)",
-          "legendFormat": "Total Tokens",
+          "expr": "sum(increase(claude_code_token_usage_tokens_total[24h]))",
+          "legendFormat": "Tokens",
           "refId": "A"
         }
       ]
@@ -239,8 +318,8 @@
       "id": 7,
       "type": "stat",
       "title": "Tokens per Session",
-      "description": "Average token consumption per session. A rising number over time points to context accumulation across long sessions.",
-      "gridPos": { "x": 16, "y": 5, "w": 4, "h": 4 },
+      "description": "Average token consumption per session in the last 24 hours. A rising number over time points to context accumulation across long sessions.",
+      "gridPos": { "x": 18, "y": 5, "w": 3, "h": 4 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "options": {
         "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
@@ -266,7 +345,7 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "sum(claude_code_token_usage_tokens_total) / sum(claude_code_session_count_total)",
+          "expr": "sum(increase(claude_code_token_usage_tokens_total[24h])) / clamp_min(sum(increase(claude_code_session_count_total[24h])), 1)",
           "legendFormat": "Tokens/Session",
           "refId": "A"
         }
@@ -275,9 +354,9 @@
     {
       "id": 8,
       "type": "stat",
-      "title": "Sessions",
-      "description": "Total number of Claude Code sessions recorded in this time range.",
-      "gridPos": { "x": 20, "y": 5, "w": 4, "h": 4 },
+      "title": "Sessions Today",
+      "description": "Number of Claude Code sessions in the last 24 hours.",
+      "gridPos": { "x": 21, "y": 5, "w": 3, "h": 4 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "options": {
         "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
@@ -303,7 +382,7 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "sum(claude_code_session_count_total)",
+          "expr": "sum(increase(claude_code_session_count_total[24h]))",
           "legendFormat": "Sessions",
           "refId": "A"
         }
