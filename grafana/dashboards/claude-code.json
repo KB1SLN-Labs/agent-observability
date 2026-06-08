@@ -449,7 +449,7 @@
       "type": "table",
       "title": "Token Volume by Type [OTEL]",
       "description": "Cumulative token counts split by type. cacheRead dwarfing input is a sign of an efficient, well-cached workflow.",
-      "gridPos": { "x": 0, "y": 19, "w": 4, "h": 8 },
+      "gridPos": { "x": 0, "y": 19, "w": 4, "h": 5 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "options": {
         "showHeader": true,
@@ -465,7 +465,7 @@
             "properties": [
               { "id": "unit", "value": "short" },
               { "id": "decimals", "value": 0 },
-              { "id": "custom.width", "value": 120 }
+              { "id": "custom.width", "value": 110 }
             ]
           },
           {
@@ -500,7 +500,7 @@
       "type": "piechart",
       "title": "Token Distribution by Type [OTEL]",
       "description": "Share of total tokens consumed by each type. A healthy session has cacheRead as the dominant slice. input and cacheCreation growing relative to cacheRead means the cache is not being reused effectively.",
-      "gridPos": { "x": 4, "y": 19, "w": 6, "h": 8 },
+      "gridPos": { "x": 4, "y": 19, "w": 5, "h": 8 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "options": {
         "pieType": "donut",
@@ -530,7 +530,7 @@
       "type": "table",
       "title": "Total Cost by Session — Top 10 [OTEL]",
       "description": "Most expensive sessions in the selected time range. A single session dominating the list usually means a very long context window or heavy Opus usage.",
-      "gridPos": { "x": 10, "y": 19, "w": 10, "h": 8 },
+      "gridPos": { "x": 9, "y": 19, "w": 7, "h": 8 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "options": {
         "showHeader": true,
@@ -573,6 +573,90 @@
           "format": "table",
           "instant": true,
           "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 30,
+      "type": "stat",
+      "title": "Cost per 1k Output Tokens [OTEL]",
+      "description": "Effective cost per 1,000 output tokens across all sessions. Higher than expected means heavy Opus usage or poor cache reuse driving up context costs. Benchmark: Sonnet ≈$0.015, Opus ≈$0.075.",
+      "gridPos": { "x": 16, "y": 19, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "options": {
+        "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 4,
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.02 },
+              { "color": "red", "value": 0.06 }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "sum(claude_code_cost_usage_USD_total) / sum(claude_code_token_usage_tokens_total{type=\"output\"}) * 1000",
+          "legendFormat": "",
+          "refId": "A",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 31,
+      "type": "stat",
+      "title": "Cache Reuse Ratio [OTEL]",
+      "description": "cacheRead tokens divided by cacheCreation tokens. How many times each cached block is being reused on average. Above 5 is good — cache is paying for itself. Below 2 means you're writing cache entries that rarely get reused.",
+      "gridPos": { "x": 16, "y": 23, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "options": {
+        "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 1,
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 2 },
+              { "color": "green", "value": 5 }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "sum(claude_code_token_usage_tokens_total{type=\"cacheRead\"}) / sum(claude_code_token_usage_tokens_total{type=\"cacheCreation\"})",
+          "legendFormat": "",
+          "refId": "A",
+          "instant": true
         }
       ]
     },
