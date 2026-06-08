@@ -498,41 +498,11 @@
       ]
     },
     {
-      "id": 15,
-      "type": "piechart",
-      "title": "Token Distribution by Type [OTEL]",
-      "description": "Share of total tokens consumed by each type. A healthy session has cacheRead as the dominant slice. input and cacheCreation growing relative to cacheRead means the cache is not being reused effectively.",
-      "gridPos": { "x": 4, "y": 19, "w": 5, "h": 8 },
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "options": {
-        "pieType": "donut",
-        "tooltip": { "mode": "none", "sort": "none" },
-        "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] },
-        "displayLabels": ["percent"]
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "color": { "mode": "palette-classic" }
-        },
-        "overrides": []
-      },
-      "targets": [
-        {
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "sum by (type) (claude_code_token_usage_tokens_total)",
-          "legendFormat": "{{type}}",
-          "refId": "A",
-          "instant": true
-        }
-      ]
-    },
-    {
       "id": 16,
       "type": "table",
       "title": "Total Cost by Session — Top 10 [OTEL]",
       "description": "Most expensive sessions in the selected time range. A single session dominating the list usually means a very long context window or heavy Opus usage.",
-      "gridPos": { "x": 9, "y": 19, "w": 6, "h": 8 },
+      "gridPos": { "x": 4, "y": 19, "w": 8, "h": 8 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "options": {
         "showHeader": true,
@@ -578,7 +548,7 @@
       "type": "stat",
       "title": "Cost per 1k Output Tokens [OTEL]",
       "description": "Effective cost per 1,000 output tokens across all sessions. Higher than expected means heavy Opus usage or poor cache reuse driving up context costs. Benchmark: Sonnet ≈$0.015, Opus ≈$0.075.",
-      "gridPos": { "x": 15, "y": 19, "w": 5, "h": 4 },
+      "gridPos": { "x": 12, "y": 19, "w": 8, "h": 4 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "options": {
         "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
@@ -620,7 +590,7 @@
       "type": "stat",
       "title": "Cache Reuse Ratio [OTEL]",
       "description": "cacheRead tokens divided by cacheCreation tokens. How many times each cached block is being reused on average. Above 5 is good — cache is paying for itself. Below 2 means you're writing cache entries that rarely get reused.",
-      "gridPos": { "x": 15, "y": 23, "w": 5, "h": 4 },
+      "gridPos": { "x": 12, "y": 23, "w": 8, "h": 4 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "options": {
         "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
