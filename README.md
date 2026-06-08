@@ -32,7 +32,102 @@ The stack can be deployed three different ways. Pick whichever fits your environ
 
 All three options deploy the same four services and the same Grafana dashboards.
 
-In all cases you'll also need Claude Code with OTEL export configured — see the setup steps for your chosen option.
+---
+
+## How it works
+
+Claude Code has built-in support for [OpenTelemetry](https://opentelemetry.io/) (OTEL) — an open standard for exporting telemetry from applications. When OTEL export is enabled, Claude Code sends two streams of data after every API interaction:
+
+- **Metrics** — structured numeric data: token counts, cost, cache hits, session duration, code lines changed, tool call counts, and more. These flow through the OTel Collector into Prometheus, where Grafana queries them to build the dashboard panels.
+- **Logs** — structured event records: every tool execution, user prompt, edit acceptance or rejection, and decision authorization. These flow through the OTel Collector into Loki, where Grafana queries them for the log explorer and log-sourced panels (tool usage breakdown, prompt length distribution, etc.).
+
+The four services and how they connect:
+
+```
+Claude Code
+    │
+    │  OTLP/HTTP (port 4318)
+    ▼
+OTel Collector          ← receives and routes all telemetry
+    ├── metrics ──────► Prometheus  ← stores time-series metrics
+    └── logs ─────────► Loki        ← stores structured log events
+                              │
+                         Grafana    ← queries both, renders dashboards
+```
+
+The OTel Collector is the only service that needs to be reachable from wherever you run Claude Code. Prometheus, Loki, and Grafana communicate with each other internally. Grafana is the only service you need to reach in a browser.
+
+---
+
+## Configuring Claude Code
+
+This step is the same regardless of which deployment option you choose. The only thing that differs between options is the endpoint URL — each deployment section calls out what to use.
+
+### What to add to settings.json
+
+Claude Code reads environment variables from its `settings.json` file. Add the following two variables:
+
+```json
+{
+  "env": {
+    "OTEL_EXPORTER_OTLP_ENDPOINT": "http://<your-collector-host>:4318",
+    "OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf"
+  }
+}
+```
+
+**`OTEL_EXPORTER_OTLP_ENDPOINT`** — the base URL of the OTel Collector. Claude Code appends `/v1/metrics` and `/v1/logs` to this URL automatically. Use `http://localhost:4318` if the stack is running on the same machine as Claude Code, or `http://<host>:4318` if it's running elsewhere.
+
+**`OTEL_EXPORTER_OTLP_PROTOCOL`** — tells Claude Code to use HTTP with protobuf encoding. This must be set to `http/protobuf`. The gRPC protocol (`grpc`) is also supported by the collector but requires a different port (4317) and is not needed for most setups.
+
+### Where is settings.json?
+
+| Platform | Path |
+|----------|------|
+| macOS / Linux | `~/.claude/settings.json` |
+| Windows | `%USERPROFILE%\.claude\settings.json` |
+
+If the file doesn't exist yet, create it. If it already exists, add the `env` block to it — don't replace the whole file. The full file structure looks like this:
+
+```json
+{
+  "env": {
+    "OTEL_EXPORTER_OTLP_ENDPOINT": "http://<your-collector-host>:4318",
+    "OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf"
+  }
+}
+```
+
+If you have other settings already in the file, add the `env` block alongside them:
+
+```json
+{
+  "someOtherSetting": true,
+  "env": {
+    "OTEL_EXPORTER_OTLP_ENDPOINT": "http://<your-collector-host>:4318",
+    "OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf"
+  }
+}
+```
+
+### Applying the change
+
+After saving `settings.json`, restart Claude Code for the change to take effect. New sessions will begin exporting telemetry immediately. Existing sessions that were open when you saved will need to be closed and reopened.
+
+### Verifying it's working
+
+Open Grafana and go to the main dashboard. Within a few minutes of running Claude Code with the setting in place, you should see:
+
+- **Total Cost Today** and **Total Tokens Today** showing non-zero values
+- **Active Sessions (24h)** incrementing as you open sessions
+- **Log Stream** (on the Logs dashboard) showing entries
+
+If the panels stay empty after several minutes, check:
+
+1. The endpoint URL in `settings.json` matches the host and port the OTel Collector is actually listening on
+2. There are no firewall rules blocking port 4318 between the Claude Code machine and the collector host
+3. Claude Code was fully restarted after the settings change (not just a new terminal tab in an existing session)
+4. The OTel Collector container or pod is running and healthy
 
 ---
 
@@ -73,9 +168,9 @@ docker compose up -d
 
 **4. Configure Claude Code to export telemetry:**
 
-How you configure the endpoint depends on where the stack is running.
+See [Configuring Claude Code](#configuring-claude-code) for full details. The endpoint depends on where the stack is running:
 
-**Same machine as Claude Code** — use `localhost` and the OTLP HTTP port (default 4318):
+**Same machine as Claude Code:**
 
 ```json
 {
@@ -86,7 +181,7 @@ How you configure the endpoint depends on where the stack is running.
 }
 ```
 
-**Stack running on a remote host** — replace `<stack-host>` with the IP address or hostname of the machine running Docker, and use whatever port you set for `OTLP_HTTP_PORT`:
+**Stack running on a remote host** — replace `<stack-host>` with the IP or hostname of the Docker machine:
 
 ```json
 {
@@ -96,8 +191,6 @@ How you configure the endpoint depends on where the stack is running.
   }
 }
 ```
-
-Add this to your Claude Code `settings.json` (usually at `~/.claude/settings.json`) and restart Claude Code.
 
 **5. Open Grafana:**
 
@@ -168,7 +261,7 @@ Wait until both `otel-collector` and `grafana` show an `EXTERNAL-IP` (or a node 
 
 **4. Configure Claude Code to export telemetry:**
 
-Point Claude Code at the OTel Collector's external IP:
+See [Configuring Claude Code](#configuring-claude-code) for full details. Point Claude Code at the OTel Collector's external IP:
 
 ```json
 {
@@ -178,8 +271,6 @@ Point Claude Code at the OTel Collector's external IP:
   }
 }
 ```
-
-Add this to your Claude Code `settings.json` (usually at `~/.claude/settings.json`) and restart Claude Code.
 
 **5. Open Grafana:**
 
@@ -246,7 +337,7 @@ Wait until `claude-code-otel-collector` and `claude-code-grafana` show an `EXTER
 
 **4. Configure Claude Code to export telemetry:**
 
-Point Claude Code at the OTel Collector's external IP:
+See [Configuring Claude Code](#configuring-claude-code) for full details. Point Claude Code at the OTel Collector's external IP:
 
 ```json
 {
@@ -256,8 +347,6 @@ Point Claude Code at the OTel Collector's external IP:
   }
 }
 ```
-
-Add this to your Claude Code `settings.json` (usually at `~/.claude/settings.json`) and restart Claude Code.
 
 **5. Open Grafana:**
 
