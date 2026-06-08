@@ -1,3 +1,6 @@
+<img width="3808" height="1815" alt="screenshot1" src="https://github.com/user-attachments/assets/311c28be-dff8-4651-b629-7943705e70d0" />
+
+
 # claude-code-observability
 
 A self-hosted monitoring stack for [Claude Code](https://claude.ai/code). All telemetry stays in your own environment — nothing is sent to Anthropic or any third-party service. Claude Code already emits OpenTelemetry data on every API interaction; this stack collects it, stores it, and surfaces it as a Grafana dashboard.
