@@ -64,7 +64,7 @@
       "type": "stat",
       "title": "Real-Time Cost Burn Rate",
       "description": "Current spend rate annualized from the past 30 minutes. Won't zero out between API turns since the window is wider than a typical turn gap. Green below $0.50/hr, yellow to $2/hr, red above.",
-      "gridPos": { "x": 0, "y": 0, "w": 5, "h": 3 },
+      "gridPos": { "x": 0, "y": 0, "w": 5, "h": 4 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "options": {
         "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
@@ -107,7 +107,7 @@
       "type": "stat",
       "title": "Total Cost Today",
       "description": "Total API spend in the last 24 hours alongside the 7-day rolling daily average. Compare the two to see if today is running above or below baseline.",
-      "gridPos": { "x": 5, "y": 0, "w": 5, "h": 3 },
+      "gridPos": { "x": 5, "y": 0, "w": 4, "h": 4 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "options": {
         "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
@@ -156,7 +156,7 @@
       "type": "stat",
       "title": "Subagent Cost (24h)",
       "description": "Cost from subagent tasks — parallel research, code review, and background work — in the last 24 hours. High subagent cost relative to main session cost means Claude is spawning many parallel workers.",
-      "gridPos": { "x": 10, "y": 0, "w": 4, "h": 3 },
+      "gridPos": { "x": 9, "y": 0, "w": 5, "h": 4 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "options": {
         "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
@@ -201,7 +201,7 @@
       "type": "stat",
       "title": "Main Session Cost (24h)",
       "description": "Cost from main conversation turns in the last 24 hours. This is the direct cost of your prompts and Claude's responses, excluding subagent and auxiliary tasks.",
-      "gridPos": { "x": 14, "y": 0, "w": 4, "h": 3 },
+      "gridPos": { "x": 14, "y": 0, "w": 4, "h": 4 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "options": {
         "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
@@ -250,7 +250,7 @@
       "type": "stat",
       "title": "Code Edit Acceptance Rate %",
       "description": "Percentage of Claude's proposed file edits that were accepted in the last 24 hours, plus the 7-day average. Below 80% suggests edits are frequently being rejected or need rework.",
-      "gridPos": { "x": 18, "y": 0, "w": 6, "h": 3 },
+      "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "options": {
         "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
@@ -301,7 +301,7 @@
       "type": "stat",
       "title": "Cost Forecast",
       "description": "Daily and monthly cost projections extrapolated from the current 6-hour burn rate. Useful for catching runaway sessions before the bill arrives.",
-      "gridPos": { "x": 0, "y": 3, "w": 4, "h": 3 },
+      "gridPos": { "x": 0, "y": 4, "w": 5, "h": 4 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "options": {
         "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
@@ -345,7 +345,7 @@
       "type": "stat",
       "title": "Average Cost / Session",
       "description": "Average API spend per session in the last 24 hours, compared to the 7-day average. A rising number over time usually means sessions are running longer without being compacted.",
-      "gridPos": { "x": 4, "y": 3, "w": 4, "h": 3 },
+      "gridPos": { "x": 5, "y": 4, "w": 4, "h": 4 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "options": {
         "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
@@ -394,7 +394,7 @@
       "type": "stat",
       "title": "Cost per 1K Tokens",
       "description": "Effective cost per 1,000 tokens across all token types. Because cache reads are ~10% of input price, heavy cache usage pulls this number down significantly. Compare against the 7-day average to spot efficiency changes.",
-      "gridPos": { "x": 8, "y": 3, "w": 4, "h": 3 },
+      "gridPos": { "x": 9, "y": 4, "w": 5, "h": 4 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "options": {
         "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
@@ -439,7 +439,7 @@
       "type": "stat",
       "title": "Active Time (24h)",
       "description": "CLI time is how long Claude Code was running and processing. User time is how long you were actively engaged. A high CLI-to-user ratio means Claude is doing a lot of autonomous work.",
-      "gridPos": { "x": 12, "y": 3, "w": 4, "h": 3 },
+      "gridPos": { "x": 14, "y": 4, "w": 4, "h": 4 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "options": {
         "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
@@ -495,14 +495,14 @@
       "type": "piechart",
       "title": "Token Distribution by Model (24h)",
       "description": "Share of total tokens consumed by each model in the last 24 hours. Sonnet dominating is expected for most workloads. A large Opus slice warrants a check on whether those tasks needed Opus-level reasoning.",
-      "gridPos": { "x": 16, "y": 3, "w": 8, "h": 6 },
+      "gridPos": { "x": 18, "y": 4, "w": 6, "h": 8 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "options": {
         "pieType": "pie",
         "displayLabels": ["percent", "name"],
         "legend": {
           "displayMode": "list",
-          "placement": "right",
+          "placement": "bottom",
           "calcs": []
         },
         "tooltip": { "mode": "single", "sort": "none" }
@@ -532,7 +532,7 @@
       "type": "stat",
       "title": "Active Sessions (24h)",
       "description": "Number of Claude Code sessions in the last 24 hours compared to the 7-day daily average.",
-      "gridPos": { "x": 0, "y": 6, "w": 4, "h": 3 },
+      "gridPos": { "x": 0, "y": 8, "w": 4, "h": 4 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "options": {
         "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
@@ -577,7 +577,7 @@
       "type": "bargauge",
       "title": "Average Session Metrics",
       "description": "Per-session averages over the last 24 hours: cost in dollars, total tokens, and active CLI time. Rising cost or token averages over days indicate sessions are running longer without being compacted.",
-      "gridPos": { "x": 4, "y": 6, "w": 8, "h": 3 },
+      "gridPos": { "x": 4, "y": 8, "w": 10, "h": 4 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "options": {
         "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
@@ -657,7 +657,7 @@
       "type": "bargauge",
       "title": "Lines of Code Modified",
       "description": "Lines added and removed in the last 24 hours alongside rolling 7-day daily averages. A large gap between Today and 7 Day Avg indicates an unusually active or quiet day.",
-      "gridPos": { "x": 12, "y": 6, "w": 4, "h": 3 },
+      "gridPos": { "x": 14, "y": 8, "w": 4, "h": 4 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "options": {
         "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
@@ -718,7 +718,7 @@
       "type": "gauge",
       "title": "Cache Hit Rate %",
       "description": "Percentage of input-side tokens served from Anthropic's prompt cache. Above 80% is healthy. Below 60% means cache is not being reused effectively — sessions may be too short or context structure is breaking cache blocks.",
-      "gridPos": { "x": 0, "y": 9, "w": 4, "h": 4 },
+      "gridPos": { "x": 0, "y": 12, "w": 4, "h": 5 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "options": {
         "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
@@ -761,7 +761,7 @@
       "type": "stat",
       "title": "Total Tokens Today",
       "description": "All tokens consumed in the last 24 hours across all types, alongside the 7-day daily average.",
-      "gridPos": { "x": 4, "y": 9, "w": 4, "h": 4 },
+      "gridPos": { "x": 4, "y": 12, "w": 5, "h": 5 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "options": {
         "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
@@ -806,7 +806,7 @@
       "type": "bargauge",
       "title": "Model Token Efficiency (tokens/$)",
       "description": "Total tokens per dollar spent by model over the selected time range. Higher is more efficient. Haiku should significantly outperform Opus. If the gap is narrow, check whether model selection is being forced.",
-      "gridPos": { "x": 8, "y": 9, "w": 8, "h": 4 },
+      "gridPos": { "x": 9, "y": 12, "w": 9, "h": 5 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "options": {
         "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
@@ -846,14 +846,14 @@
       "type": "piechart",
       "title": "Tool Usage Breakdown",
       "description": "Share of tool calls by tool type over the selected time range, sourced from structured logs. Covers all tools — Bash, Read, Edit, Write, and others — not just file edits.",
-      "gridPos": { "x": 16, "y": 9, "w": 8, "h": 8 },
+      "gridPos": { "x": 18, "y": 12, "w": 6, "h": 10 },
       "datasource": { "type": "loki", "uid": "${loki_datasource}" },
       "options": {
         "pieType": "donut",
         "displayLabels": ["percent", "name"],
         "legend": {
           "displayMode": "list",
-          "placement": "right",
+          "placement": "bottom",
           "calcs": []
         },
         "tooltip": { "mode": "single", "sort": "none" }
@@ -883,7 +883,7 @@
       "type": "timeseries",
       "title": "Peak Cost Hours",
       "description": "API spend per hour over the selected time range. Spikes show when sessions were most expensive. Useful for correlating high cost periods with what was being worked on.",
-      "gridPos": { "x": 0, "y": 13, "w": 8, "h": 4 },
+      "gridPos": { "x": 0, "y": 17, "w": 9, "h": 5 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "options": {
         "tooltip": { "mode": "single", "sort": "none" },
@@ -929,7 +929,7 @@
       "type": "stat",
       "title": "Weekly Total Token Usage",
       "description": "Total tokens consumed in the last 7 days. The sparkline shows the daily trend — a rising slope means usage is accelerating week over week.",
-      "gridPos": { "x": 8, "y": 13, "w": 8, "h": 4 },
+      "gridPos": { "x": 9, "y": 17, "w": 9, "h": 5 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "options": {
         "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
@@ -967,7 +967,7 @@
       "type": "timeseries",
       "title": "Cost Anomaly Detection",
       "description": "Deviation of current hourly spend from the 7-day historical average for the same hour. Values above 200% (dashed line) are flagged as anomalies — investigate what was running during those periods.",
-      "gridPos": { "x": 0, "y": 17, "w": 8, "h": 4 },
+      "gridPos": { "x": 0, "y": 22, "w": 9, "h": 5 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "options": {
         "tooltip": { "mode": "multi", "sort": "desc" },
@@ -1031,7 +1031,7 @@
       "type": "timeseries",
       "title": "Prompts Per Hour",
       "description": "Count of user prompt events logged over a rolling 1-hour window, sourced from structured logs. Peaks show concentrated interaction periods; gaps are idle time between sessions.",
-      "gridPos": { "x": 8, "y": 17, "w": 8, "h": 4 },
+      "gridPos": { "x": 9, "y": 22, "w": 9, "h": 5 },
       "datasource": { "type": "loki", "uid": "${loki_datasource}" },
       "options": {
         "tooltip": { "mode": "single", "sort": "none" },
@@ -1075,14 +1075,14 @@
       "type": "piechart",
       "title": "Tool Decision Sources (24h)",
       "description": "How tool execution decisions were authorized over the last 24 hours. Config = approved via CLAUDE.md or settings. User temporary = approved once for the session. User permanent = added to always-allow list.",
-      "gridPos": { "x": 16, "y": 17, "w": 8, "h": 4 },
+      "gridPos": { "x": 18, "y": 22, "w": 6, "h": 5 },
       "datasource": { "type": "loki", "uid": "${loki_datasource}" },
       "options": {
         "pieType": "donut",
         "displayLabels": ["percent", "name"],
         "legend": {
           "displayMode": "list",
-          "placement": "right",
+          "placement": "bottom",
           "calcs": []
         },
         "tooltip": { "mode": "single", "sort": "none" }
@@ -1112,7 +1112,7 @@
       "type": "timeseries",
       "title": "Code Modification Velocity (lines/min)",
       "description": "Rate of lines added and removed per minute. Spikes indicate concentrated editing bursts. A high removed rate relative to added suggests refactoring or cleanup sessions.",
-      "gridPos": { "x": 0, "y": 21, "w": 8, "h": 4 },
+      "gridPos": { "x": 0, "y": 27, "w": 9, "h": 5 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "options": {
         "tooltip": { "mode": "multi", "sort": "desc" },
@@ -1165,7 +1165,7 @@
       "type": "timeseries",
       "title": "Token Usage Rate (24h)",
       "description": "Tokens consumed per minute across all types. The legend table shows mean, last, and peak rates for the selected window. A sustained high rate approaching your plan's TPM ceiling is the signal to start a fresh session.",
-      "gridPos": { "x": 8, "y": 21, "w": 8, "h": 4 },
+      "gridPos": { "x": 9, "y": 27, "w": 9, "h": 5 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "options": {
         "tooltip": { "mode": "multi", "sort": "desc" },
@@ -1213,7 +1213,7 @@
       "type": "bargauge",
       "title": "Prompt Length Distribution (chars)",
       "description": "Distribution of prompt lengths by character count bucket over the selected time range, sourced from structured logs. Most prompts are short — long prompts (1k+ chars) typically mean pasted code or detailed task descriptions.",
-      "gridPos": { "x": 16, "y": 21, "w": 8, "h": 4 },
+      "gridPos": { "x": 18, "y": 27, "w": 6, "h": 5 },
       "datasource": { "type": "loki", "uid": "${loki_datasource}" },
       "options": {
         "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
