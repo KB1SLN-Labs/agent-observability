@@ -3,7 +3,7 @@
 
 # claude-code-observability
 
-A self-hosted monitoring stack for [Claude Code](https://claude.ai/code). All telemetry stays in your own environment — nothing is sent to Anthropic or any third-party service. Claude Code already emits OpenTelemetry data on every API interaction; this stack collects it, stores it, and surfaces it as a Grafana dashboard.
+A self-hosted monitoring stack for [Claude Code](https://claude.ai/code). All telemetry stays in your own environment — nothing is sent to Anthropic or any third-party service. Claude Code already emits OpenTelemetry data throughout its operation — covering API calls, tool executions, prompts, edits, and session activity; this stack collects it, stores it, and surfaces it as a Grafana dashboard.
 
 **Stack:** OpenTelemetry Collector → Prometheus (metrics) + Loki (logs) → Grafana
 
@@ -36,7 +36,7 @@ All three options deploy the same four services and the same Grafana dashboards.
 
 ## How it works
 
-Claude Code has built-in support for [OpenTelemetry](https://opentelemetry.io/) (OTel) — an open standard for exporting telemetry from applications. When OTel export is enabled, Claude Code sends two streams of data after every API interaction:
+Claude Code has built-in support for [OpenTelemetry](https://opentelemetry.io/) (OTel) — an open standard for exporting telemetry from applications. When OTel export is enabled, Claude Code sends two streams of data continuously throughout its operation — not just on API calls, but on every tool execution, prompt, edit, and authorization event:
 
 - **Metrics** — structured numeric data: token counts, cost, cache hits, session duration, code lines changed, tool call counts, and more. These flow through the OTel Collector into Prometheus, where Grafana queries them to build the dashboard panels.
 - **Logs** — structured event records: every tool execution, user prompt, edit acceptance or rejection, and decision authorization. These flow through the OTel Collector into Loki, where Grafana queries them for the log explorer and log-sourced panels.
