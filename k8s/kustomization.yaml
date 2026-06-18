@@ -8,6 +8,7 @@ resources:
   - otel-collector.yaml
   - prometheus.yaml
   - loki.yaml
+  - tempo.yaml
   - grafana.yaml
 
 # Builds the grafana-dashboards ConfigMap directly from the dashboard JSON
