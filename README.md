@@ -38,6 +38,8 @@ Three ways to run the stack — pick the one that matches your environment. You 
 
 All three options deploy the same four services and the same Grafana dashboards. Each section below includes a clone step — start there regardless of which option you choose.
 
+> **Already running an earlier version?** Skip the install steps and jump to **[Upgrading an existing deployment](#upgrading-an-existing-deployment)** for per-method update instructions (no data is lost).
+
 ---
 
 ## How it works
