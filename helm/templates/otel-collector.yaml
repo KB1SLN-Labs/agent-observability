@@ -44,6 +44,11 @@ data:
           job: true
         tls:
           insecure: true
+
+      otlp/tempo:
+        endpoint: http://{{ include "claude-code-observability.tempoHost" . }}:4317
+        tls:
+          insecure: true
 {{- if .Values.dynatrace.enabled }}
 
       otlphttp/dynatrace:
@@ -70,6 +75,11 @@ data:
           receivers: [otlp]
           processors: [memory_limiter, batch]
           exporters: [loki{{ if .Values.dynatrace.enabled }}, otlphttp/dynatrace{{ end }}]
+
+        traces:
+          receivers: [otlp]
+          processors: [memory_limiter, batch]
+          exporters: [otlp/tempo{{ if .Values.dynatrace.enabled }}, otlphttp/dynatrace{{ end }}]
 
 ---
 apiVersion: apps/v1

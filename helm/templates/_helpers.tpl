@@ -33,6 +33,10 @@ multiple installs in the same namespace don't collide.
 {{- printf "%s-grafana" .Release.Name }}
 {{- end }}
 
+{{- define "claude-code-observability.tempoHost" -}}
+{{- printf "%s-tempo" .Release.Name }}
+{{- end }}
+
 {{/*
 PVC storageClassName: omit the field entirely when storageClass is empty so
 the cluster's default StorageClass is used.

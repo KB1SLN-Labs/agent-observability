@@ -27,6 +27,13 @@ data:
         isDefault: false
         editable: false
 
+      - name: Tempo
+        type: tempo
+        uid: tempo
+        url: http://{{ include "claude-code-observability.tempoHost" . }}:3200
+        isDefault: false
+        editable: false
+
   dashboards.yaml: |
     apiVersion: 1
 

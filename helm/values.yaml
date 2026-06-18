@@ -41,6 +41,25 @@ loki:
       cpu: 500m
       memory: 512Mi
 
+## Tempo (traces backend)
+## The trace store, peer of Prometheus (metrics) and Loki (logs). Both Claude
+## Code and the interactive Codex app emit OpenTelemetry traces; this is where
+## they land. Tempo also generates RED span metrics (latency histograms) that
+## are remote-written to Prometheus so trace latency can be charted with PromQL.
+tempo:
+  image: grafana/tempo:2.5.0
+  retention: 168h
+  persistence:
+    size: 10Gi
+    storageClass: ""
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
 ## Dynatrace (optional fan-out exporter)
 ## To enable, create a Secret with DT_OTLP_ENDPOINT and DT_API_TOKEN keys,
 ## then set enabled: true and secretName to match. Use a local values override

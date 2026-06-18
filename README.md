@@ -4,7 +4,7 @@ A self-hosted observability stack for AI coding agents. It collects the OpenTele
 
 The repo contains everything needed to stand the stack up: the OpenTelemetry Collector, Prometheus, Loki, and Grafana configs, deployment manifests for Docker Compose / Kubernetes / Helm, and pre-built dashboards for each supported agent. Point an agent's OTel exporter at the collector and its dashboard fills in.
 
-**Stack:** OpenTelemetry Collector → Prometheus (metrics) + Loki (logs) → Grafana
+**Stack:** OpenTelemetry Collector → Prometheus (metrics) + Loki (logs) + Tempo (traces) → Grafana
 
 **Supported agents and dashboards:**
 
@@ -55,7 +55,7 @@ Three ways to run the stack — pick the one that matches your environment. You 
 | [Kubernetes (Kustomize)](#kubernetes) | A cluster and `kubectl` v1.14+ | Existing cluster without Helm. Raw manifests that are easy to inspect and edit. |
 | [Helm](#helm) | A cluster and Helm v3 | Existing cluster with Helm. Cleanest to customize and upgrade. |
 
-All three options deploy the same four services and the same Grafana dashboards. Each section below includes a clone step — start there regardless of which option you choose.
+All three options deploy the same five services and the same Grafana dashboards. Each section below includes a clone step — start there regardless of which option you choose.
 
 > **Already running an earlier version?** Skip the install steps and jump to **[Upgrading an existing deployment](#upgrading-an-existing-deployment)** for per-method update instructions (no data is lost).
 
@@ -63,25 +63,31 @@ All three options deploy the same four services and the same Grafana dashboards.
 
 ## How it works
 
-Claude Code has built-in support for [OpenTelemetry](https://opentelemetry.io/) (OTel) — an open standard for exporting telemetry from applications. When OTel export is enabled, Claude Code sends two streams of data continuously throughout its operation — not just on API calls, but on every tool execution, prompt, edit, and authorization event:
+Claude Code and Codex both have built-in support for [OpenTelemetry](https://opentelemetry.io/) (OTel) — an open standard for exporting telemetry from applications. When OTel export is enabled, the agents send three streams of data continuously throughout their operation — not just on API calls, but on every tool execution, prompt, edit, and authorization event:
 
 - **Metrics** — structured numeric data: token counts, cost, cache hits, session duration, code lines changed, tool call counts, and more. These flow through the OTel Collector into Prometheus, where Grafana queries them to build the dashboard panels.
 - **Logs** — structured event records: every tool execution, user prompt, edit acceptance or rejection, and decision authorization. These flow through the OTel Collector into Loki, where Grafana queries them for the log explorer and log-sourced panels.
+- **Traces** — spans around each model request and tool execution, capturing timing and the parent/child structure of a turn. These flow through the OTel Collector into Tempo. Tempo derives latency (span) metrics from them into Prometheus, and the raw traces are explorable in Grafana.
 
-The four services and how they connect:
+The services and how they connect:
 
 ```
-Claude Code
+Claude Code / Codex
     │
-    │  OTLP/HTTP (port 4318)
+    │  OTLP/HTTP (port 4318)  — metrics, logs, traces
     ▼
 OTel Collector
     ├── metrics ──► Prometheus ──┐
-    │                            ├──► Grafana
-    └── logs ─────► Loki ────────┘
+    │                            │
+    ├── logs ─────► Loki ────────┼──► Grafana
+    │                            │
+    └── traces ───► Tempo ───────┘
+                      └── span metrics ──► Prometheus
 ```
 
-The OTel Collector is the only service that needs to be reachable from wherever you run Claude Code. Prometheus, Loki, and Grafana communicate with each other internally. Grafana is the only service you need to reach in a browser.
+Both agents emit all three OpenTelemetry signals — **metrics**, **logs**, and **traces** — and the collector routes each to the matching backend: Prometheus for metrics, Loki for logs, and **Tempo for traces**. Tempo also derives RED span metrics (latency histograms, request/error counts) from traces and remote-writes them to Prometheus, so trace-based latency can be charted with PromQL.
+
+The OTel Collector is the only service that needs to be reachable from wherever you run the agents. Prometheus, Loki, Tempo, and Grafana communicate with each other internally. Grafana is the only service you need to reach in a browser.
 
 ---
 
@@ -152,18 +158,28 @@ Codex is configured via `~/.codex/config.toml` (`%USERPROFILE%\.codex\config.tom
 environment = "prod"
 log_user_prompt = false   # keep prompt text out of telemetry; prompt_length is still recorded
 
-[otel.exporter.otlp-http]
+[otel.exporter.otlp-http]            # logs   -> Loki
 endpoint = "http://<your-collector-host>:4318/v1/logs"
+protocol = "binary"
+
+[otel.metrics_exporter.otlp-http]    # metrics -> Prometheus
+endpoint = "http://<your-collector-host>:4318/v1/metrics"
+protocol = "binary"
+
+[otel.trace_exporter.otlp-http]      # traces -> Tempo
+endpoint = "http://<your-collector-host>:4318/v1/traces"
 protocol = "binary"
 ```
 
-**`endpoint`** — the collector's OTLP HTTP logs URL. Unlike Claude Code (which appends `/v1/logs` automatically), Codex's exporter takes the **full** path including `/v1/logs`. Use `http://localhost:4318/v1/logs` if the stack is on the same machine, or the collector's host/IP otherwise.
+**`endpoint`** — each exporter points at the collector's matching OTLP HTTP path. Unlike Claude Code (which appends the signal path automatically), Codex's exporters take the **full** path (`/v1/logs`, `/v1/metrics`, `/v1/traces`). Use `http://localhost:4318/...` if the stack is on the same machine, or the collector's host/IP otherwise.
 
 **`protocol = "binary"`** — OTLP protobuf over HTTP, which the collector accepts on port 4318.
 
 **`log_user_prompt = false`** — recommended. Codex records `prompt_length` regardless, so the Prompt-per-hour panel works without capturing prompt contents.
 
-The Codex dashboard is log-sourced only — Codex's telemetry carries token counts and latency but no per-request dollar cost, so the dashboard tracks **usage and performance**, not spend. If you also want Codex's traces/metrics elsewhere, configure `[otel.trace_exporter.otlp-http]` / `[otel.metrics_exporter.otlp-http]` separately; the Grafana dashboard only needs the logs exporter above.
+The current Codex dashboard is built from **logs** (conversations, tokens, tools, decisions), so the logs exporter is the only one strictly required for the dashboard as shipped. Configuring the metrics and traces exporters as well sends Codex's full signal set through the collector — traces land in Tempo (viewable in Grafana's Explore, with latency available via span metrics in Prometheus), which is the basis for the response-latency panels. Codex's telemetry carries no per-request dollar cost, so the dashboard tracks **usage and performance**, not spend.
+
+> **Note on signal coverage by entry point.** Per OpenAI's instrumentation, the **interactive Codex app** emits all three signals (metrics, logs, traces); **`codex exec`** (the headless CLI) emits logs and traces but **no metrics**; and `codex mcp-server` emits nothing. So metric-based panels populate only from interactive/desktop usage, and (as noted above) `codex.turn_ttft` is desktop-only.
 
 After saving, restart Codex so it re-reads the config. For the **CLI**, just start a new `codex` session.
 
@@ -285,7 +301,7 @@ cd agent-observability
 kubectl apply -k k8s/
 ```
 
-This creates the `claude-code-observability` namespace and deploys all four services. PersistentVolumeClaims are created using your cluster's default StorageClass. If your cluster doesn't have a default StorageClass configured (common on bare metal), you'll need to add a `storageClassName` to the PVC specs in `k8s/prometheus.yaml` and `k8s/loki.yaml` before deploying, or use the [Helm chart](#helm) where this is a simple values option.
+This creates the `claude-code-observability` namespace and deploys all five services. PersistentVolumeClaims are created using your cluster's default StorageClass. If your cluster doesn't have a default StorageClass configured (common on bare metal), you'll need to add a `storageClassName` to the PVC specs in `k8s/prometheus.yaml` and `k8s/loki.yaml` before deploying, or use the [Helm chart](#helm) where this is a simple values option.
 
 Grafana and the OTel Collector use `LoadBalancer` services by default. If your cluster doesn't have a load balancer provisioner (bare metal, local clusters, etc.), change `type: LoadBalancer` to `type: NodePort` in `k8s/otel-collector.yaml` and `k8s/grafana.yaml` before running `kubectl apply`.
 
@@ -335,7 +351,7 @@ kubectl delete pvc -n claude-code-observability --all
 
 ## Helm
 
-The Helm chart is in the `helm/` directory. It deploys the same four-service stack as the Kubernetes manifests but all tunables — image versions, service types, PVC sizes, retention, resource limits — are in `values.yaml` rather than requiring direct manifest edits.
+The Helm chart is in the `helm/` directory. It deploys the same five-service stack as the Kubernetes manifests but all tunables — image versions, service types, PVC sizes, retention, resource limits — are in `values.yaml` rather than requiring direct manifest edits.
 
 ### Setup
 

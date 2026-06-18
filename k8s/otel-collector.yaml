@@ -38,6 +38,11 @@ data:
         tls:
           insecure: true
 
+      otlp/tempo:
+        endpoint: http://tempo:4317
+        tls:
+          insecure: true
+
     service:
       pipelines:
         metrics:
@@ -49,6 +54,11 @@ data:
           receivers: [otlp]
           processors: [memory_limiter, batch]
           exporters: [loki]
+
+        traces:
+          receivers: [otlp]
+          processors: [memory_limiter, batch]
+          exporters: [otlp/tempo]
 
 ---
 apiVersion: apps/v1
