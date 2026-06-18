@@ -743,7 +743,7 @@ Codex's output signals: **Total Tool Calls**, **Tool Success Rate %** (red below
 
 ![Codex Tools section](docs/img/codex-section-tools.png)
 
-**Tool Usage Breakdown** (by `tool_name`), **Tool Decision Outcomes** (approved / denied / ask), and **Decision Source** (config policy vs interactive approval), plus **Tool Calls Over Time** and **MCP Server Attribution** for tool calls that ran through an MCP server.
+**Tool Usage Breakdown** (by `tool_name`), **Tool Decision Outcomes** (approved / denied / ask), and **Decision Source** (config policy vs interactive approval), plus **Tool Calls Over Time** and **MCP Server Attribution** for tool calls that ran through an MCP server. **Most Used Tools** is a table with per-tool uses, average duration, and success rate, and **Tool Success Rate by Tool** breaks the success percentage out per tool so you can spot which specific tools are failing.
 
 #### ⚡ Performance
 
@@ -755,7 +755,7 @@ Codex's output signals: **Total Tool Calls**, **Tool Success Rate %** (red below
 
 ![Codex Sessions section](docs/img/codex-section-sessions.png)
 
-Conversation distribution by **Model**, **Approval Policy**, **Surface** (CLI vs desktop), and **Reasoning Effort**, plus **New Conversations Over Time**.
+Conversation distribution by **Model**, **Approval Policy**, **Surface** (CLI vs desktop), **Reasoning Effort**, and **Originator** (what launched the conversation — `Claude_Code` means Claude Code spawned Codex, `codex_exec` is the CLI used directly), plus **New Conversations Over Time** and **Avg Session Metrics** (average tool calls per conversation and the count of conversations that used tools).
 
 #### 📜 Live Event Feed  *(Codex-specific)*
 
