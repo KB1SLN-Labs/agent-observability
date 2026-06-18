@@ -1565,13 +1565,235 @@
       ]
     },
     {
+      "id": 70,
+      "type": "table",
+      "title": "Most Used Tools",
+      "description": "Per-tool breakdown over the selected range: uses, average duration, and success rate. Sourced from codex.tool_result, joined on tool_name.",
+      "gridPos": {
+        "x": 0,
+        "y": 60,
+        "w": 14,
+        "h": 8
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "${loki_datasource}"
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Success %"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "yellow",
+                      "value": 70
+                    },
+                    {
+                      "color": "green",
+                      "value": 85
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Avg Duration (ms)"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "ms"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "joinByField",
+          "options": {
+            "byField": "attributes_tool_name",
+            "mode": "outer"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "renameByName": {
+              "attributes_tool_name": "Tool",
+              "Value #uses": "Uses",
+              "Value #avgdur": "Avg Duration (ms)",
+              "Value #succ": "Success %"
+            },
+            "indexByName": {
+              "attributes_tool_name": 0,
+              "Value #uses": 1,
+              "Value #avgdur": 2,
+              "Value #succ": 3
+            },
+            "excludeByName": {
+              "Time": true
+            }
+          }
+        }
+      ],
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "${loki_datasource}"
+          },
+          "refId": "uses",
+          "format": "table",
+          "instant": true,
+          "expr": "sum by(attributes_tool_name)(count_over_time({service_name=~\"codex-app-server|codex_exec\"} | json | attributes_event_name=\"codex.tool_result\" [$__range]))"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "${loki_datasource}"
+          },
+          "refId": "avgdur",
+          "format": "table",
+          "instant": true,
+          "expr": "avg_over_time({service_name=~\"codex-app-server|codex_exec\"} | json | attributes_event_name=\"codex.tool_result\" | unwrap attributes_duration_ms [$__range]) by (attributes_tool_name)"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "${loki_datasource}"
+          },
+          "refId": "succ",
+          "format": "table",
+          "instant": true,
+          "expr": "sum by(attributes_tool_name)(count_over_time({service_name=~\"codex-app-server|codex_exec\"} | json | attributes_event_name=\"codex.tool_result\" | attributes_success=\"true\" [$__range])) / sum by(attributes_tool_name)(count_over_time({service_name=~\"codex-app-server|codex_exec\"} | json | attributes_event_name=\"codex.tool_result\" [$__range])) * 100"
+        }
+      ]
+    },
+    {
+      "id": 71,
+      "type": "bargauge",
+      "title": "Tool Success Rate by Tool",
+      "description": "Success rate (success=\"true\") per tool over the selected range. Surfaces which specific tools are failing. Red below 70%, yellow to 85%, green above.",
+      "gridPos": {
+        "x": 14,
+        "y": 60,
+        "w": 10,
+        "h": 8
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "${loki_datasource}"
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "valueMode": "color",
+        "showUnfilled": true,
+        "minVizWidth": 0,
+        "minVizHeight": 10
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 1,
+          "min": 0,
+          "max": 100,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 70
+              },
+              {
+                "color": "green",
+                "value": 85
+              }
+            ]
+          },
+          "mappings": [],
+          "noValue": "No tools"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "${loki_datasource}"
+          },
+          "refId": "A",
+          "instant": true,
+          "expr": "sum by(attributes_tool_name)(count_over_time({service_name=~\"codex-app-server|codex_exec\"} | json | attributes_event_name=\"codex.tool_result\" | attributes_success=\"true\" [$__range])) / sum by(attributes_tool_name)(count_over_time({service_name=~\"codex-app-server|codex_exec\"} | json | attributes_event_name=\"codex.tool_result\" [$__range])) * 100",
+          "legendFormat": "{{attributes_tool_name}}"
+        }
+      ]
+    },
+    {
       "id": 202,
       "type": "row",
       "title": "⚡ Performance",
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 60,
+        "y": 68,
         "w": 24,
         "h": 1
       },
@@ -1584,7 +1806,7 @@
       "description": "95th percentile WebSocket round-trip (websocket_event duration_ms) grouped by model. Codex uses WebSocket transport, so this is the available latency signal. Yellow at 5s, red at 15s.",
       "gridPos": {
         "x": 0,
-        "y": 61,
+        "y": 69,
         "w": 12,
         "h": 6
       },
@@ -1655,7 +1877,7 @@
       "description": "Average WebSocket round-trip duration per hour by model. Rising latency can indicate larger context or server backpressure.",
       "gridPos": {
         "x": 12,
-        "y": 61,
+        "y": 69,
         "w": 12,
         "h": 6
       },
@@ -1718,7 +1940,7 @@
       "description": "Count of WebSocket events with success=\"false\" — failed transport round-trips. Green at zero; any failures turn it yellow, 5+ red.",
       "gridPos": {
         "x": 0,
-        "y": 67,
+        "y": 75,
         "w": 8,
         "h": 4
       },
@@ -1788,7 +2010,7 @@
       "description": "WebSocket event throughput per minute — a measure of how chatty Codex's transport is. Spikes track active generation.",
       "gridPos": {
         "x": 8,
-        "y": 67,
+        "y": 75,
         "w": 16,
         "h": 4
       },
@@ -1852,7 +2074,7 @@
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 71,
+        "y": 79,
         "w": 24,
         "h": 1
       },
@@ -1865,7 +2087,7 @@
       "description": "Distribution of conversations by model (codex.conversation_starts model).",
       "gridPos": {
         "x": 0,
-        "y": 72,
+        "y": 80,
         "w": 6,
         "h": 6
       },
@@ -1923,7 +2145,7 @@
       "description": "Split of conversations by approval_policy (never / on-request / on-failure / untrusted).",
       "gridPos": {
         "x": 6,
-        "y": 72,
+        "y": 80,
         "w": 6,
         "h": 6
       },
@@ -1981,7 +2203,7 @@
       "description": "CLI (codex_exec) vs desktop app (codex-app-server) conversation share.",
       "gridPos": {
         "x": 12,
-        "y": 72,
+        "y": 80,
         "w": 6,
         "h": 6
       },
@@ -2039,7 +2261,7 @@
       "description": "Distribution of conversations by reasoning_effort (low / medium / high / xhigh). A heavy xhigh share drives up reasoning-token usage.",
       "gridPos": {
         "x": 18,
-        "y": 72,
+        "y": 80,
         "w": 6,
         "h": 6
       },
@@ -2102,7 +2324,7 @@
       "description": "New Codex conversations started per hour across both surfaces.",
       "gridPos": {
         "x": 0,
-        "y": 78,
+        "y": 86,
         "w": 24,
         "h": 5
       },
@@ -2160,13 +2382,157 @@
       ]
     },
     {
+      "id": 72,
+      "type": "piechart",
+      "title": "Conversations by Originator",
+      "description": "What launched each conversation (codex.conversation_starts originator). 'Claude_Code' means Claude Code spawned Codex; 'codex_exec' is the CLI used directly. Useful for spotting agent-to-agent orchestration.",
+      "gridPos": {
+        "x": 0,
+        "y": 91,
+        "w": 8,
+        "h": 5
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "${loki_datasource}"
+      },
+      "options": {
+        "pieType": "pie",
+        "displayLabels": [
+          "percent",
+          "name"
+        ],
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            }
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "${loki_datasource}"
+          },
+          "refId": "A",
+          "instant": true,
+          "expr": "sum by(attributes_originator)(count_over_time({service_name=~\"codex-app-server|codex_exec\"} | json | attributes_event_name=\"codex.conversation_starts\" [$__range]))",
+          "legendFormat": "{{attributes_originator}}"
+        }
+      ]
+    },
+    {
+      "id": 73,
+      "type": "stat",
+      "title": "Avg Session Metrics",
+      "description": "Average tool calls per conversation (total tool_result events divided by distinct conversations that used tools) and the count of those conversations, over the selected range.",
+      "gridPos": {
+        "x": 8,
+        "y": 91,
+        "w": 16,
+        "h": 5
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "${loki_datasource}"
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "horizontal",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 1,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          },
+          "mappings": [],
+          "noValue": "0"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Conversations w/ Tools"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "purple"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "${loki_datasource}"
+          },
+          "refId": "A",
+          "instant": true,
+          "legendFormat": "Avg Tool Calls / Conversation",
+          "expr": "sum(count_over_time({service_name=~\"codex-app-server|codex_exec\"} | json | attributes_event_name=\"codex.tool_result\" [$__range])) / count(count by(attributes_conversation_id)(count_over_time({service_name=~\"codex-app-server|codex_exec\"} | json | attributes_event_name=\"codex.tool_result\" [$__range])))"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "${loki_datasource}"
+          },
+          "refId": "B",
+          "instant": true,
+          "legendFormat": "Conversations w/ Tools",
+          "expr": "count(count by(attributes_conversation_id)(count_over_time({service_name=~\"codex-app-server|codex_exec\"} | json | attributes_event_name=\"codex.tool_result\" [$__range])))"
+        }
+      ]
+    },
+    {
       "id": 205,
       "type": "row",
       "title": "📜 Live Event Feed",
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 83,
+        "y": 96,
         "w": 24,
         "h": 1
       },
@@ -2179,7 +2545,7 @@
       "description": "Raw Codex log stream (both surfaces), excluding high-volume websocket noise. Click a line to expand the full structured payload.",
       "gridPos": {
         "x": 0,
-        "y": 84,
+        "y": 97,
         "w": 24,
         "h": 10
       },
