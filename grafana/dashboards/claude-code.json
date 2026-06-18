@@ -2782,8 +2782,8 @@
     {
       "id": 34,
       "type": "bargauge",
-      "title": "API Response Latency p95 by Model",
-      "description": "95th percentile API response duration by model over the selected range, from structured api_request logs. Higher Sonnet latency vs Haiku reflects longer reasoning chains. Sustained spikes above baseline signal context-window pressure or API backpressure. Yellow at 30s, red at 60s.",
+      "title": "Response Latency p95 by Model",
+      "description": "95th percentile response time per request by model over the selected range, from structured request logs. This is how long Anthropic's servers take to respond — a real performance signal for everyone, independent of plan or billing. Higher Sonnet latency vs Haiku reflects longer reasoning chains; sustained spikes above baseline signal context-window pressure or server backpressure. Yellow at 30s, red at 60s.",
       "gridPos": {
         "x": 0,
         "y": 81,
@@ -2854,8 +2854,8 @@
     {
       "id": 33,
       "type": "stat",
-      "title": "API Errors (24h)",
-      "description": "Count of api_error events in the last 24 hours — API failures including rate-limit rejections, network errors, and model errors. Green at zero; any errors turn the panel yellow, 5+ turns it red. Drill into the Logs dashboard for detail.",
+      "title": "Request Errors (24h)",
+      "description": "Count of failed requests in the last 24 hours — including rate-limit rejections, network errors, and model errors returned by Anthropic's servers. Applies to everyone regardless of plan or billing. Green at zero; any errors turn the panel yellow, 5+ turns it red. Drill into the Logs dashboard for detail.",
       "gridPos": {
         "x": 12,
         "y": 81,
