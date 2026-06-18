@@ -527,7 +527,7 @@
             "type": "loki",
             "uid": "${loki_datasource}"
           },
-          "expr": "sum(sum_over_time({service_name=~\"codex-app-server|codex_exec\"} | json | attributes_event_name=\"codex.sse_event\" | unwrap attributes_input_token_count [1h]))",
+          "expr": "sum(sum_over_time({service_name=~\"codex-app-server|codex_exec\"} | json | attributes_event_name=\"codex.sse_event\" | unwrap attributes_input_token_count [$__auto]))",
           "legendFormat": "input",
           "refId": "A"
         },
@@ -536,7 +536,7 @@
             "type": "loki",
             "uid": "${loki_datasource}"
           },
-          "expr": "sum(sum_over_time({service_name=~\"codex-app-server|codex_exec\"} | json | attributes_event_name=\"codex.sse_event\" | unwrap attributes_output_token_count [1h]))",
+          "expr": "sum(sum_over_time({service_name=~\"codex-app-server|codex_exec\"} | json | attributes_event_name=\"codex.sse_event\" | unwrap attributes_output_token_count [$__auto]))",
           "legendFormat": "output",
           "refId": "B"
         },
@@ -545,7 +545,7 @@
             "type": "loki",
             "uid": "${loki_datasource}"
           },
-          "expr": "sum(sum_over_time({service_name=~\"codex-app-server|codex_exec\"} | json | attributes_event_name=\"codex.sse_event\" | unwrap attributes_cached_token_count [1h]))",
+          "expr": "sum(sum_over_time({service_name=~\"codex-app-server|codex_exec\"} | json | attributes_event_name=\"codex.sse_event\" | unwrap attributes_cached_token_count [$__auto]))",
           "legendFormat": "cached",
           "refId": "C"
         },
@@ -554,7 +554,7 @@
             "type": "loki",
             "uid": "${loki_datasource}"
           },
-          "expr": "sum(sum_over_time({service_name=~\"codex-app-server|codex_exec\"} | json | attributes_event_name=\"codex.sse_event\" | unwrap attributes_reasoning_token_count [1h]))",
+          "expr": "sum(sum_over_time({service_name=~\"codex-app-server|codex_exec\"} | json | attributes_event_name=\"codex.sse_event\" | unwrap attributes_reasoning_token_count [$__auto]))",
           "legendFormat": "reasoning",
           "refId": "D"
         }
@@ -883,7 +883,7 @@
             "type": "loki",
             "uid": "${loki_datasource}"
           },
-          "expr": "sum(count_over_time({service_name=~\"codex-app-server|codex_exec\"} | json | attributes_event_name=\"codex.sse_event\" | attributes_event_kind=\"response.completed\" [1h]))",
+          "expr": "sum(count_over_time({service_name=~\"codex-app-server|codex_exec\"} | json | attributes_event_name=\"codex.sse_event\" | attributes_event_kind=\"response.completed\" [$__auto]))",
           "legendFormat": "Turns",
           "refId": "A"
         }
@@ -947,7 +947,7 @@
             "type": "loki",
             "uid": "${loki_datasource}"
           },
-          "expr": "sum by (attributes_event_name) (count_over_time({service_name=~\"codex-app-server|codex_exec\"} | json | attributes_event_name!=\"codex.websocket_event\" | attributes_event_name!=\"codex.websocket_request\" [1h]))",
+          "expr": "sum by (attributes_event_name) (count_over_time({service_name=~\"codex-app-server|codex_exec\"} | json | attributes_event_name!=\"codex.websocket_event\" | attributes_event_name!=\"codex.websocket_request\" [$__auto]))",
           "legendFormat": "{{attributes_event_name}}",
           "refId": "A"
         }
@@ -1172,7 +1172,7 @@
             "type": "loki",
             "uid": "${loki_datasource}"
           },
-          "expr": "sum(count_over_time({service_name=~\"codex-app-server|codex_exec\"} | json | attributes_event_name=\"codex.tool_result\" |~ \"git \" [1h]))",
+          "expr": "sum(count_over_time({service_name=~\"codex-app-server|codex_exec\"} | json | attributes_event_name=\"codex.tool_result\" |~ \"git \" [$__auto]))",
           "legendFormat": "git commands",
           "refId": "A"
         },
@@ -1181,7 +1181,7 @@
             "type": "loki",
             "uid": "${loki_datasource}"
           },
-          "expr": "sum(count_over_time({service_name=~\"codex-app-server|codex_exec\"} | json | attributes_event_name=\"codex.tool_result\" |~ \"(Set-Content|Out-File|Add-Content|apply_patch)\" [1h]))",
+          "expr": "sum(count_over_time({service_name=~\"codex-app-server|codex_exec\"} | json | attributes_event_name=\"codex.tool_result\" |~ \"(Set-Content|Out-File|Add-Content|apply_patch)\" [$__auto]))",
           "legendFormat": "file edits",
           "refId": "B"
         }
@@ -1245,7 +1245,7 @@
             "type": "loki",
             "uid": "${loki_datasource}"
           },
-          "expr": "sum(count_over_time({service_name=~\"codex-app-server|codex_exec\"} | json | attributes_event_name=\"codex.user_prompt\" [1h]))",
+          "expr": "sum(count_over_time({service_name=~\"codex-app-server|codex_exec\"} | json | attributes_event_name=\"codex.user_prompt\" [$__auto]))",
           "legendFormat": "Prompts",
           "refId": "A"
         }
@@ -1495,7 +1495,7 @@
             "type": "loki",
             "uid": "${loki_datasource}"
           },
-          "expr": "sum by (attributes_tool_name) (count_over_time({service_name=~\"codex-app-server|codex_exec\"} | json | attributes_event_name=\"codex.tool_result\" [1h]))",
+          "expr": "sum by (attributes_tool_name) (count_over_time({service_name=~\"codex-app-server|codex_exec\"} | json | attributes_event_name=\"codex.tool_result\" [$__auto]))",
           "legendFormat": "{{attributes_tool_name}}",
           "refId": "A"
         }
@@ -1705,7 +1705,7 @@
             "type": "loki",
             "uid": "${loki_datasource}"
           },
-          "expr": "avg_over_time({service_name=~\"codex-app-server|codex_exec\"} | json | attributes_event_name=\"codex.websocket_event\" | unwrap attributes_duration_ms [1h]) by (attributes_model)",
+          "expr": "avg_over_time({service_name=~\"codex-app-server|codex_exec\"} | json | attributes_event_name=\"codex.websocket_event\" | unwrap attributes_duration_ms [$__auto]) by (attributes_model)",
           "legendFormat": "{{attributes_model}}",
           "refId": "A"
         }
@@ -1839,7 +1839,7 @@
             "type": "loki",
             "uid": "${loki_datasource}"
           },
-          "expr": "sum(count_over_time({service_name=~\"codex-app-server|codex_exec\"} | json | attributes_event_name=\"codex.websocket_event\" [1m]))",
+          "expr": "sum(count_over_time({service_name=~\"codex-app-server|codex_exec\"} | json | attributes_event_name=\"codex.websocket_event\" [$__auto]))",
           "legendFormat": "WS events/min",
           "refId": "A"
         }
@@ -2153,7 +2153,7 @@
             "type": "loki",
             "uid": "${loki_datasource}"
           },
-          "expr": "sum(count_over_time({service_name=~\"codex-app-server|codex_exec\"} | json | attributes_event_name=\"codex.conversation_starts\" [1h]))",
+          "expr": "sum(count_over_time({service_name=~\"codex-app-server|codex_exec\"} | json | attributes_event_name=\"codex.conversation_starts\" [$__auto]))",
           "legendFormat": "Conversations",
           "refId": "A"
         }
