@@ -1306,7 +1306,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum(rate(claude_code_token_usage_tokens_total[5m]) * 60)",
+          "expr": "sum(rate(claude_code_token_usage_tokens_total[$__auto]) * 60)",
           "legendFormat": "Total Token Rate",
           "refId": "A"
         }
@@ -1383,7 +1383,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum by(query_source)(increase(claude_code_token_usage_tokens_total{type!=\"cacheRead\"}[1h]))",
+          "expr": "sum by(query_source)(increase(claude_code_token_usage_tokens_total{type!=\"cacheRead\"}[$__auto]))",
           "legendFormat": "{{query_source}}",
           "refId": "A"
         }
@@ -2144,7 +2144,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum by (type) (rate(claude_code_lines_of_code_count_total[5m]) * 60)",
+          "expr": "sum by (type) (rate(claude_code_lines_of_code_count_total[$__auto]) * 60)",
           "legendFormat": "{{type}}",
           "refId": "A"
         }
@@ -2673,7 +2673,7 @@
             "type": "loki",
             "uid": "${loki_datasource}"
           },
-          "expr": "sum(count_over_time({job=\"claude-code\"} |= \"user_prompt\" [1h]))",
+          "expr": "sum(count_over_time({job=\"claude-code\"} |= \"user_prompt\" [$__auto]))",
           "legendFormat": "Prompts",
           "refId": "A"
         }
