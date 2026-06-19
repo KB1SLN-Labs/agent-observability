@@ -769,7 +769,9 @@ Codex's output signals: **Total Tool Calls**, **Tool Success Rate %** (red below
 
 ![Codex Performance section](docs/img/codex-section-performance.png)
 
-**p95 Turn Latency by Model** (WebSocket round-trip, yellow at 5s / red at 15s), **Avg Turn Latency Over Time by Model**, **Transport Errors** (WebSocket events with `success="false"`), and **WebSocket Round-Trip Rate** (transport throughput per minute).
+**p95 Turn Latency by Model** (WebSocket round-trip, yellow at 5s / red at 15s), **Avg Turn Latency Over Time by Model**, **Transport Errors** (WebSocket events with `success="false"`), and **WebSocket Round-Trip Rate** (transport throughput per minute). When the API-request and TTFT log events are present (see the config note above), this section also carries **Avg API Latency**, **p95 API Latency by Model**, **TTFT** (avg + over time), and **API Request Errors by HTTP Status**.
+
+**Trace-derived latency.** Because Codex emits traces, this section adds an operation-level latency breakdown built from Tempo's span metrics (in Prometheus): **p95** and **average operation latency by span** (where time goes inside a turn — model sampling, websocket round-trips, tool discovery, etc.), **operation call rate by span**, and **end-to-end turn duration** (the `run_turn` span — total turn time, complementing TTFT). These come from trace spans the Codex CLI already emits, so they populate from CLI usage with no desktop dependency. The p95 panel needs a few turns within its rate window before it has enough samples to compute a percentile — it's expected to read empty during idle periods.
 
 #### 💬 Sessions & Conversations  *(Codex-specific)*
 
