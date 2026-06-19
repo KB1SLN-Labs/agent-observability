@@ -2600,7 +2600,7 @@
           },
           "refId": "A",
           "instant": true,
-          "expr": "histogram_quantile(0.95, sum by (span_name, le)(rate(traces_spanmetrics_latency_bucket{service=~\"codex.*\"}[$__rate_interval]))) * 1000",
+          "expr": "sort_desc(histogram_quantile(0.95, sum by (span_name, le)(rate(traces_spanmetrics_latency_bucket{service=~\"codex.*\"}[$__range]))) * 1000 < +Inf)",
           "legendFormat": "{{span_name}}"
         }
       ]
