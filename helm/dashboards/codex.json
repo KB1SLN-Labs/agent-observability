@@ -51,6 +51,19 @@
         "current": {},
         "hide": 0,
         "includeAll": false,
+        "label": "Prometheus",
+        "multi": false,
+        "name": "datasource",
+        "options": [],
+        "query": "prometheus",
+        "refresh": 1,
+        "skipUrlSync": false,
+        "type": "datasource"
+      },
+      {
+        "current": {},
+        "hide": 0,
+        "includeAll": false,
         "label": "Loki",
         "multi": false,
         "name": "loki_datasource",
@@ -2521,13 +2534,276 @@
       ]
     },
     {
+      "id": 90,
+      "type": "bargauge",
+      "title": "Trace: p95 Operation Latency by Span",
+      "description": "95th percentile latency per Codex operation, derived from trace spans (Tempo span metrics in Prometheus). Shows where time goes inside a turn — model sampling, websocket round-trips, tool discovery, etc. Sourced from codex_exec and the desktop app's traces. Populates under sustained usage; a single one-off turn may not have enough samples for a percentile.",
+      "gridPos": {
+        "x": 0,
+        "y": 95,
+        "w": 12,
+        "h": 7
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "valueMode": "color",
+        "showUnfilled": true,
+        "minVizWidth": 0,
+        "minVizHeight": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "decimals": 0,
+          "color": {
+            "mode": "continuous-GrYlRd"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 2000
+              },
+              {
+                "color": "red",
+                "value": 10000
+              }
+            ]
+          },
+          "mappings": [],
+          "noValue": "No trace data in range"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "refId": "A",
+          "instant": true,
+          "expr": "histogram_quantile(0.95, sum by (span_name, le)(rate(traces_spanmetrics_latency_bucket{service=~\"codex.*\"}[$__rate_interval]))) * 1000",
+          "legendFormat": "{{span_name}}"
+        }
+      ]
+    },
+    {
+      "id": 91,
+      "type": "bargauge",
+      "title": "Trace: Avg Operation Latency by Span",
+      "description": "Average latency per Codex operation from trace span metrics (sum/count). Complements the p95 view and is available even from a single turn.",
+      "gridPos": {
+        "x": 12,
+        "y": 95,
+        "w": 12,
+        "h": 7
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "valueMode": "color",
+        "showUnfilled": true,
+        "minVizWidth": 0,
+        "minVizHeight": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "decimals": 0,
+          "color": {
+            "mode": "continuous-BlPu"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "noValue": "No trace data in range"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "refId": "A",
+          "instant": true,
+          "expr": "sort_desc(sum by (span_name)(increase(traces_spanmetrics_latency_sum{service=~\"codex.*\"}[$__range])) / sum by (span_name)(increase(traces_spanmetrics_latency_count{service=~\"codex.*\"}[$__range])) * 1000)",
+          "legendFormat": "{{span_name}}"
+        }
+      ]
+    },
+    {
+      "id": 92,
+      "type": "timeseries",
+      "title": "Trace: Operation Call Rate by Span",
+      "description": "Per-operation call rate from trace span metrics (traces_spanmetrics_calls_total). Shows which Codex operations run most and when.",
+      "gridPos": {
+        "x": 0,
+        "y": 102,
+        "w": 12,
+        "h": 6
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 2,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            }
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "refId": "A",
+          "legendFormat": "{{span_name}}",
+          "expr": "sum by (span_name)(rate(traces_spanmetrics_calls_total{service=~\"codex.*\"}[$__rate_interval]))"
+        }
+      ]
+    },
+    {
+      "id": 93,
+      "type": "timeseries",
+      "title": "Trace: End-to-End Turn Duration",
+      "description": "Average duration of the run_turn span over time — the full end-to-end time for one Codex conversation turn, derived from traces. Complements TTFT (first-token): this is the total turn time. Works from CLI traces, no desktop dependency.",
+      "gridPos": {
+        "x": 12,
+        "y": 102,
+        "w": 12,
+        "h": 6
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "options": {
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "orange"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 15,
+            "showPoints": "auto",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            }
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "refId": "A",
+          "legendFormat": "turn duration (avg)",
+          "expr": "sum(rate(traces_spanmetrics_latency_sum{service=~\"codex.*\",span_name=\"run_turn\"}[$__rate_interval])) / sum(rate(traces_spanmetrics_latency_count{service=~\"codex.*\",span_name=\"run_turn\"}[$__rate_interval])) * 1000"
+        }
+      ]
+    },
+    {
       "id": 204,
       "type": "row",
       "title": "💬 Sessions & Conversations",
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 94,
+        "y": 107,
         "w": 24,
         "h": 1
       },
@@ -2540,7 +2816,7 @@
       "description": "Distribution of conversations by model (codex.conversation_starts model).",
       "gridPos": {
         "x": 0,
-        "y": 95,
+        "y": 108,
         "w": 6,
         "h": 6
       },
@@ -2598,7 +2874,7 @@
       "description": "Split of conversations by approval_policy (never / on-request / on-failure / untrusted).",
       "gridPos": {
         "x": 6,
-        "y": 95,
+        "y": 108,
         "w": 6,
         "h": 6
       },
@@ -2656,7 +2932,7 @@
       "description": "CLI (codex_exec) vs desktop app (codex-app-server) conversation share.",
       "gridPos": {
         "x": 12,
-        "y": 95,
+        "y": 108,
         "w": 6,
         "h": 6
       },
@@ -2714,7 +2990,7 @@
       "description": "Distribution of conversations by reasoning_effort (low / medium / high / xhigh). A heavy xhigh share drives up reasoning-token usage.",
       "gridPos": {
         "x": 18,
-        "y": 95,
+        "y": 108,
         "w": 6,
         "h": 6
       },
@@ -2777,7 +3053,7 @@
       "description": "New Codex conversations started per hour across both surfaces.",
       "gridPos": {
         "x": 0,
-        "y": 101,
+        "y": 114,
         "w": 24,
         "h": 5
       },
@@ -2841,7 +3117,7 @@
       "description": "What launched each conversation (codex.conversation_starts originator). 'Claude_Code' means Claude Code spawned Codex; 'codex_exec' is the CLI used directly. Useful for spotting agent-to-agent orchestration.",
       "gridPos": {
         "x": 0,
-        "y": 106,
+        "y": 119,
         "w": 8,
         "h": 5
       },
@@ -2900,7 +3176,7 @@
       "description": "Average tool calls per conversation (total tool_result events divided by distinct conversations that used tools) and the count of those conversations, over the selected range.",
       "gridPos": {
         "x": 8,
-        "y": 106,
+        "y": 119,
         "w": 16,
         "h": 5
       },
@@ -2985,7 +3261,7 @@
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 111,
+        "y": 124,
         "w": 24,
         "h": 1
       },
@@ -2998,7 +3274,7 @@
       "description": "Raw Codex log stream (both surfaces), excluding high-volume websocket noise. Click a line to expand the full structured payload.",
       "gridPos": {
         "x": 0,
-        "y": 112,
+        "y": 125,
         "w": 24,
         "h": 10
       },
