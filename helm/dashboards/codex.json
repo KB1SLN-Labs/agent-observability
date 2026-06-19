@@ -2664,7 +2664,7 @@
           },
           "refId": "A",
           "instant": true,
-          "expr": "sort_desc(sum by (span_name)(increase(traces_spanmetrics_latency_sum{service=~\"codex.*\"}[$__range])) / sum by (span_name)(increase(traces_spanmetrics_latency_count{service=~\"codex.*\"}[$__range])) * 1000)",
+          "expr": "sort_desc(sum by (span_name)(increase(traces_spanmetrics_latency_sum{service=~\"codex.*\"}[$__range])) / (sum by (span_name)(increase(traces_spanmetrics_latency_count{service=~\"codex.*\"}[$__range])) > 0) * 1000)",
           "legendFormat": "{{span_name}}"
         }
       ]
