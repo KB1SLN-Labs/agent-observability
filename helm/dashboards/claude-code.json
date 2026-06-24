@@ -240,8 +240,7 @@
           },
           "expr": "sum(sum_over_time({job=\"claude-code\"} |= \"api_request\" | json | unwrap attributes_cost_usd [$__range]))",
           "legendFormat": "Cost Today",
-          "refId": "A",
-          "instant": true
+          "refId": "A"
         },
         {
           "datasource": {
@@ -250,8 +249,7 @@
           },
           "expr": "sum(sum_over_time({job=\"claude-code\"} |= \"api_request\" | json | unwrap attributes_cost_usd [7d])) / 7",
           "legendFormat": "7 Day Avg",
-          "refId": "B",
-          "instant": true
+          "refId": "B"
         }
       ]
     },
@@ -313,8 +311,7 @@
           },
           "expr": "sum(sum_over_time({job=\"claude-code\"} |= \"api_request\" | json | attributes_query_source=~\"agent:.*\" | unwrap attributes_cost_usd [$__range]))",
           "legendFormat": "Subagent Cost",
-          "refId": "A",
-          "instant": true
+          "refId": "A"
         },
         {
           "datasource": {
@@ -323,8 +320,7 @@
           },
           "expr": "sum(sum_over_time({job=\"claude-code\"} |= \"api_request\" | json | attributes_query_source=~\"agent:.*\" | unwrap attributes_cost_usd [7d])) / 7",
           "legendFormat": "7 Day Avg",
-          "refId": "B",
-          "instant": true
+          "refId": "B"
         }
       ]
     },
@@ -394,8 +390,7 @@
           },
           "expr": "sum(sum_over_time({job=\"claude-code\"} |= \"api_request\" | json | attributes_query_source=\"sdk\" | unwrap attributes_cost_usd [$__range]))",
           "legendFormat": "Session Cost",
-          "refId": "A",
-          "instant": true
+          "refId": "A"
         },
         {
           "datasource": {
@@ -404,8 +399,7 @@
           },
           "expr": "sum(sum_over_time({job=\"claude-code\"} |= \"api_request\" | json | attributes_query_source=\"sdk\" | unwrap attributes_cost_usd [7d])) / 7",
           "legendFormat": "7 Day Avg",
-          "refId": "B",
-          "instant": true
+          "refId": "B"
         }
       ]
     },
@@ -616,8 +610,7 @@
           },
           "expr": "sum(sum_over_time({job=\"claude-code\"} |= \"api_request\" | json | unwrap attributes_cost_usd [$__range])) / (sum(sum_over_time({job=\"claude-code\"} |= \"api_request\" | json | unwrap attributes_input_tokens [$__range])) + sum(sum_over_time({job=\"claude-code\"} |= \"api_request\" | json | unwrap attributes_output_tokens [$__range])) + sum(sum_over_time({job=\"claude-code\"} |= \"api_request\" | json | unwrap attributes_cache_read_tokens [$__range])) + sum(sum_over_time({job=\"claude-code\"} |= \"api_request\" | json | unwrap attributes_cache_creation_tokens [$__range]))) * 1000",
           "legendFormat": "1K Tokens",
-          "refId": "A",
-          "instant": true
+          "refId": "A"
         },
         {
           "datasource": {
@@ -626,8 +619,7 @@
           },
           "expr": "sum(sum_over_time({job=\"claude-code\"} |= \"api_request\" | json | unwrap attributes_cost_usd [7d])) / (sum(sum_over_time({job=\"claude-code\"} |= \"api_request\" | json | unwrap attributes_input_tokens [7d])) + sum(sum_over_time({job=\"claude-code\"} |= \"api_request\" | json | unwrap attributes_output_tokens [7d])) + sum(sum_over_time({job=\"claude-code\"} |= \"api_request\" | json | unwrap attributes_cache_read_tokens [7d])) + sum(sum_over_time({job=\"claude-code\"} |= \"api_request\" | json | unwrap attributes_cache_creation_tokens [7d]))) * 1000",
           "legendFormat": "7 Day Average",
-          "refId": "B",
-          "instant": true
+          "refId": "B"
         }
       ]
     },
@@ -753,8 +745,7 @@
           },
           "expr": "sum(sum_over_time({job=\"claude-code\"} |= \"api_request\" | json | attributes_model=~\".*sonnet.*\" | unwrap attributes_cache_read_tokens [$__range])) * 0.0000027 + sum(sum_over_time({job=\"claude-code\"} |= \"api_request\" | json | attributes_model=~\".*haiku.*\" | unwrap attributes_cache_read_tokens [$__range])) * 0.00000072",
           "legendFormat": "Savings Today",
-          "refId": "A",
-          "instant": true
+          "refId": "A"
         },
         {
           "datasource": {
@@ -763,8 +754,7 @@
           },
           "expr": "(sum(sum_over_time({job=\"claude-code\"} |= \"api_request\" | json | attributes_model=~\".*sonnet.*\" | unwrap attributes_cache_read_tokens [7d])) * 0.0000027 + sum(sum_over_time({job=\"claude-code\"} |= \"api_request\" | json | attributes_model=~\".*haiku.*\" | unwrap attributes_cache_read_tokens [7d])) * 0.00000072) / 7",
           "legendFormat": "7 Day Avg",
-          "refId": "B",
-          "instant": true
+          "refId": "B"
         }
       ]
     },
@@ -1041,8 +1031,7 @@
           },
           "expr": "sum(sum_over_time({job=\"claude-code\"} |= \"api_request\" | json | unwrap attributes_input_tokens [$__range])) + sum(sum_over_time({job=\"claude-code\"} |= \"api_request\" | json | unwrap attributes_output_tokens [$__range])) + sum(sum_over_time({job=\"claude-code\"} |= \"api_request\" | json | unwrap attributes_cache_creation_tokens [$__range]))",
           "legendFormat": "Effective Tokens (24h)",
-          "refId": "A",
-          "instant": true
+          "refId": "A"
         }
       ]
     },
@@ -1105,8 +1094,7 @@
           },
           "expr": "sum(sum_over_time({job=\"claude-code\"} |= \"api_request\" | json | attributes_model=~\".*sonnet.*\" | unwrap attributes_input_tokens [$__range])) + sum(sum_over_time({job=\"claude-code\"} |= \"api_request\" | json | attributes_model=~\".*sonnet.*\" | unwrap attributes_output_tokens [$__range])) + sum(sum_over_time({job=\"claude-code\"} |= \"api_request\" | json | attributes_model=~\".*sonnet.*\" | unwrap attributes_cache_creation_tokens [$__range]))",
           "legendFormat": "Sonnet Effective Tokens (24h)",
-          "refId": "A",
-          "instant": true
+          "refId": "A"
         }
       ]
     },
@@ -1167,8 +1155,7 @@
           },
           "expr": "sum(sum_over_time({job=\"claude-code\"} |= \"api_request\" | json | unwrap attributes_input_tokens [$__range])) + sum(sum_over_time({job=\"claude-code\"} |= \"api_request\" | json | unwrap attributes_output_tokens [$__range])) + sum(sum_over_time({job=\"claude-code\"} |= \"api_request\" | json | unwrap attributes_cache_read_tokens [$__range])) + sum(sum_over_time({job=\"claude-code\"} |= \"api_request\" | json | unwrap attributes_cache_creation_tokens [$__range]))",
           "legendFormat": "Total Tokens Today",
-          "refId": "A",
-          "instant": true
+          "refId": "A"
         },
         {
           "datasource": {
@@ -1239,8 +1226,7 @@
           },
           "expr": "sum(sum_over_time({job=\"claude-code\"} |= \"api_request\" | json | unwrap attributes_input_tokens [7d])) + sum(sum_over_time({job=\"claude-code\"} |= \"api_request\" | json | unwrap attributes_output_tokens [7d])) + sum(sum_over_time({job=\"claude-code\"} |= \"api_request\" | json | unwrap attributes_cache_read_tokens [7d])) + sum(sum_over_time({job=\"claude-code\"} |= \"api_request\" | json | unwrap attributes_cache_creation_tokens [7d]))",
           "legendFormat": "Weekly Token Usage",
-          "refId": "A",
-          "instant": true
+          "refId": "A"
         }
       ]
     },
@@ -1528,8 +1514,7 @@
           },
           "expr": "sum(sum_over_time({job=\"claude-code\"} |= \"api_request\" | json | unwrap attributes_cache_read_tokens [$__range])) / (sum(sum_over_time({job=\"claude-code\"} |= \"api_request\" | json | unwrap attributes_input_tokens [$__range])) + sum(sum_over_time({job=\"claude-code\"} |= \"api_request\" | json | unwrap attributes_cache_read_tokens [$__range])) + sum(sum_over_time({job=\"claude-code\"} |= \"api_request\" | json | unwrap attributes_cache_creation_tokens [$__range]))) * 100",
           "legendFormat": "Cache Hit %",
-          "refId": "A",
-          "instant": true
+          "refId": "A"
         }
       ]
     },
